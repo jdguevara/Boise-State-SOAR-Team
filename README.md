@@ -1,5 +1,5 @@
 # NASA-SOAR_BoiseState
-This is to store code for the NASA SOAR module created by the Boise State team
+The purpose of this repo is to maintain version control of the code for the NASA SOAR's module created by the Boise State team
 
 ### Downloading the Arduino IDE 
 While we are using C in order to program our Arduino, it would be best to use the Arduino IDE to better interface with the board. You can use the following download links to install the latest Arduino IDE for your machine.

@@ -13,7 +13,7 @@ While we are using C in order to program our Arduino, it would be best to use th
 ###### All other downloads of the IDE can be seen at: https://www.arduino.cc/en/Main/Software
 
 ### How to clone into this repo
-From you home directory type in the following
+From your home directory type in the following
 
 	$ mkdir Projects && cd $_
 

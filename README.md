@@ -1,4 +1,4 @@
-# NASA-SOAR_BoiseState
+# Boise-State-SOAR-Team
 The purpose of this repo is to maintain version control of the code for the NASA SOAR's module created by the Boise State team
 
 ### Downloading the Arduino IDE 
@@ -26,6 +26,11 @@ You can type the following commands straight into the bash shell from your direc
 
 	$ git clone git@github.com:jdguevara/NASA-SOAR_BoiseState.git
 Using SSH is a faster and safer way to upload and download changes to and from the repo. If you'd like to learn how to generate an SSH key ,and upload it to GitHub, you can find the article [here](https://help.github.com/articles/connecting-to-github-with-ssh/).
+
+### Creating Your Own Branch
+In order to not distrupt any previous code, or code that others may have been working on. Please take a look [here](https://help.github.com/articles/creating-and-deleting-branches-within-your-repository/) to learn how create your own git branch. This will enable each person to work on their own code. Doing this will allow each collaborator to implement changes/ideas that they may feel would help with either streamlining the code or adding more useful features, all without changing the "main" code.
+
+Creating branches allows us to have a more centralized version, while at the same time allowing for concurrent brainstorming on our own individual time, that we can then share at meetings either with the whole group or with the CS sub-group.
 
 ### Compiling and Running the Arduino code and files
 Now that you have the correct files in your repo, in order for the Arduino IDE to properly communicate with the board you will need to pass it the following libraries:

@@ -1,1 +1,0 @@
-*****Boise State SOAR Team

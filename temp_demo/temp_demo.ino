@@ -17,7 +17,7 @@ Adafruit_MAX31865 max = Adafruit_MAX31865(MAX31865_CS); // Use hardware SPI, jus
 bool isRecording;
 
 //Constants
-const int POLLING_RATE = 400; //the polling rate, expressed in miliseconds (400Hz = 400ms)
+const int POLLING_RATE = (int)((1/(double)400)*1000); //the polling rate, expressed in miliseconds (400Hz = 1/400ms)
 
 //class Defintions
 /**

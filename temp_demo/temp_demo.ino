@@ -56,9 +56,10 @@ void initialization()
   
   initCSV();
   initSensors();
-  while (waitingToStart())
+  while (!isRecording)
   {
-    Serial.println("waiting for go singal to start recording");
+    checkForGoSignal();
+    Serial.println("waiting for go signal to start recording");
   }
   record();
 }
@@ -184,31 +185,11 @@ void finish()
   //TODO: power down, or wait for signal to start recording again (don't know what wer are supposed to do here)
 }
 
-/**
- * Function done for now, checks to see if wheels are up, if so, will inform the program that it is time to start recording
- */
-bool waitingToStart()
-{
-  if (getGoSignal())
-  {
-    isRecording = true;
-    return false;
-  }
-  else
-  {
-    return true;
-  }
-}
-
-bool getGoSignal()
+void checkForGoSignal()
 {
   if (1) //fill in once we know how to get the plane's wheels up signal
   {
-    return true;
-  }
-  else
-  {
-    return false;
+    isRecording = true;
   }
 }
 

@@ -1,14 +1,25 @@
+#include <Adafruit_LIS3DH.h>
+
+#include <Wire.h>
+#include <SPI.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BMP280.h>
+
 #include <Adafruit_MAX31865.h>
 
 //Declarations for imported hardware firmware classes
 
 //Temp Sensor
 #define MAX31865_CS 7 // CS pin
-Adafruit_MAX31865 max = Adafruit_MAX31865(MAX31865_CS); // Use hardware SPI, just pass in the CS pin
 #define RREF 430.0 // The value of the Rref resistor. Use 430.0!
+Adafruit_MAX31865 max = Adafruit_MAX31865(MAX31865_CS); // Use hardware SPI, just pass in the CS pin
 
 //Pressure Sensor
-
+#define BMP_SCK 9
+#define BMP_MISO 10
+#define BMP_MOSI 8 
+#define BMP_CS 6
+Adafruit_BMP280 bme(BMP_CS); // hardware SPI
 
 // Vibration Sensor
 
@@ -26,8 +37,9 @@ const int POLLING_RATE = (int)((1/(double)400)*1000); //the polling rate, expres
 class DataBlock
 {
   public:
-    float temp;
+    float extTemp;
     float pressure;
+    float intTemp;
     float vibX;
     float vibY;
     float vibZ;
@@ -37,8 +49,9 @@ class DataBlock
 //constructor for the DataBlock object
 DataBlock::DataBlock(void)
 {
-  temp = 0.0;
+  extTemp = 0.0;
   pressure = 0.0;
+  intTemp = 0.0;
   vibX = 0.0;
   vibY = 0.0;
   vibZ = 0.0;
@@ -88,11 +101,14 @@ DataBlock pollSensors()
 {
   DataBlock currDataBlock;
   
-  float currTemp = readTemp();
-  currDataBlock.temp = currTemp;
+  float currExtTemp = readExtTemp();
+  currDataBlock.extTemp = currExtTemp;
   
   float currPres = readPressure();
   currDataBlock.pressure = currPres;
+  
+  float currIntTemp = readIntTemp();
+  currDataBlock.intTemp = currIntTemp;
   
   float currVibX = readVibX();
   currDataBlock.vibX = currVibX;
@@ -106,15 +122,21 @@ DataBlock pollSensors()
   return currDataBlock;
 }
 
-float readTemp()
+float readExtTemp()
 {
-  float currTemp = max.temperature(100, RREF);
-  return currTemp;
+  float currExtTemp = max.temperature(100, RREF);
+  return currExtTemp;
+}
+
+float readIntTemp()
+{
+  float currIntTemp = bme.readTemperature();
+  return currIntTemp;
 }
 
 float readPressure()
 {
-  float currPres = 0.0;
+  float currPres = bme.readPressure();
   return currPres;
 }
 
@@ -139,12 +161,16 @@ float readVibZ()
 void writeToCSV(DataBlock dataToWrite)
 {  
   //Print Temperature data
-  Serial.print("Temp: ");
-  Serial.print(dataToWrite.temp);
+  Serial.print("External Temp: ");
+  Serial.print(dataToWrite.extTemp);
   Serial.print(" ");
 
   Serial.print("Pressure: ");
   Serial.print(dataToWrite.pressure);
+  Serial.print(" ");
+
+  Serial.print("Internal Temp: ");
+  Serial.print(dataToWrite.intTemp);
   Serial.print(" ");
 
   Serial.print("Vibration X: ");
@@ -176,6 +202,12 @@ void initSensors()
   //TODO: initialize the sensors on the serial bus
   //Temp Sensor
   max.begin(MAX31865_3WIRE);  // set to 2WIRE or 4WIRE as necessary
+
+  //Pressure and int temp sensor
+  if (!bme.begin()) {  
+    Serial.println("Could not find a valid BMP280 sensor, check wiring!");
+    while (1);
+  }
 }
 
 void finish()

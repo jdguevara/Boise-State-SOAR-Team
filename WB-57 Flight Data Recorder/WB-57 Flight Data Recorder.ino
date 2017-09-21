@@ -15,9 +15,6 @@
 Adafruit_MAX31865 max = Adafruit_MAX31865(MAX31865_CS); // Use hardware SPI, just pass in the CS pin
 
 //Pressure Sensor
-#define BMP_SCK 9
-#define BMP_MISO 10
-#define BMP_MOSI 8 
 #define BMP_CS 6
 Adafruit_BMP280 bme(BMP_CS); // hardware SPI
 

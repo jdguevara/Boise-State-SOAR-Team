@@ -16,7 +16,11 @@ just pass in the CS pin
 
 //Pressure Sensor
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+
+>>>>>>> b5e755028bb69922ec4e406b932f65675650b86a
 
 >>>>>>> b5e755028bb69922ec4e406b932f65675650b86a
 
@@ -241,6 +245,7 @@ void initSensors()
   max.begin(MAX31865_3WIRE);  // set to 2WIRE or 4WIRE as necessary
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 
   //Pressure and int temp sensor
   if (!bme.begin()) {  
@@ -250,6 +255,8 @@ void initSensors()
 
   //Accelerometer
   
+=======
+>>>>>>> b5e755028bb69922ec4e406b932f65675650b86a
 =======
 >>>>>>> b5e755028bb69922ec4e406b932f65675650b86a
 =======

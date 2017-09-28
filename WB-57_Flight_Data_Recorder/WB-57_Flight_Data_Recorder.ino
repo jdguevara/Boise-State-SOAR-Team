@@ -14,10 +14,22 @@
 Adafruit_MAX31865 max = Adafruit_MAX31865(MAX31865_CS); // Use hardware SPI, just pass in the CS pin
 
 //Pressure Sensor
+<<<<<<< HEAD
 #define BMP_CS 6
 Adafruit_BMP280 bme(BMP_CS); // hardware SPI
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+=======
 
-// Vibration Sensor
+>>>>>>> b5e755028bb69922ec4e406b932f65675650b86a
+>>>>>>> f0740030eae60195e2c99085ff0188a0adf6cab2
+
+>>>>>>> b5e755028bb69922ec4e406b932f65675650b86a
+
+
+// Accelerometer
 
 
 //Software Instance variables
@@ -83,6 +95,14 @@ void record()
     delay(POLLING_RATE); //enforce the polling rate with a hardware no-op for the duration of gap time
   }
   finish();
+}
+
+void checkForGoSignal()
+{
+  if (1) //fill in once we know how to get the plane's wheels up signal
+  {
+    isRecording = true;
+  }
 }
 
 void checkForStopSignal()
@@ -198,12 +218,30 @@ void initSensors()
   //TODO: initialize the sensors on the serial bus
   //Temp Sensor
   max.begin(MAX31865_3WIRE);  // set to 2WIRE or 4WIRE as necessary
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> f0740030eae60195e2c99085ff0188a0adf6cab2
 
   //Pressure and int temp sensor
   if (!bme.begin()) {  
     Serial.println("Could not find a valid BMP280 sensor, check wiring!");
     while (1);
   }
+<<<<<<< HEAD
+=======
+
+  //Accelerometer
+  
+=======
+>>>>>>> b5e755028bb69922ec4e406b932f65675650b86a
+=======
+>>>>>>> b5e755028bb69922ec4e406b932f65675650b86a
+=======
+>>>>>>> b5e755028bb69922ec4e406b932f65675650b86a
+>>>>>>> f0740030eae60195e2c99085ff0188a0adf6cab2
 }
 
 void finish()
@@ -213,13 +251,7 @@ void finish()
   //TODO: power down, or wait for signal to start recording again (don't know what wer are supposed to do here)
 }
 
-void checkForGoSignal()
-{
-  if (1) //fill in once we know how to get the plane's wheels up signal
-  {
-    isRecording = true;
-  }
-}
+
 
 void loop() 
 { 

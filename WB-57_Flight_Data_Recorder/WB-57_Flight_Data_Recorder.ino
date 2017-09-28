@@ -3,33 +3,24 @@
 #include <SPI.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
-#include <Adafruit_MAX31865.h>
-#include "SD.h"
-#include "SPI.h"
 
-// CSV string variables
-String dataString =""; // holds the data to be written to the SD card
-File sensorData;
+#include <Adafruit_MAX31865.h>
 
 //Declarations for imported hardware firmware classes
 
 //Temp Sensor
 #define MAX31865_CS 7 // CS pin
-Adafruit_MAX31865 max = Adafruit_MAX31865(MAX31865_CS); // Use hardware SPI, just pass in the CS pin
 #define RREF 430.0 // The value of the Rref resistor. Use 430.0!
+Adafruit_MAX31865 max = Adafruit_MAX31865(MAX31865_CS); // Use hardware SPI, just pass in the CS pin
 
 //Pressure Sensor
-<<<<<<< HEAD
-
-#define BMP_CS 6
-Adafruit_BMP280 bme(BMP_CS); // hardware SPI
-=======
 #define BMP_CS 6
 Adafruit_BMP280 bme(BMP_CS); // hardware SPI
 
->>>>>>> d277c921bc4abfa7f156440d8e529f7f6bba9771
 
 // Accelerometer
+#define LIS3DH_CS 5
+Adafruit_LIS3DH lis = Adafruit_LIS3DH(LIS3DH_CS);
 
 //Software Instance variables
 bool isRecording;
@@ -39,28 +30,29 @@ const int POLLING_RATE = (int)((1/(double)400)*1000); //the polling rate, expres
 
 //class Defintions
 /**
- * DataBlock class to represent a collection of all current readings from the 
-sensors
+ * DataBlock class to represent a collection of all current readings from the sensors
  */
 class DataBlock
 {
   public:
-    float temp;
+    float extTemp;
     float pressure;
-    float vibX;
-    float vibY;
-    float vibZ;
+    float intTemp;
+    float accelX;
+    float accelY;
+    float accelZ;
     DataBlock();
 };
 
 //constructor for the DataBlock object
 DataBlock::DataBlock(void)
 {
-  temp = 0.0;
+  extTemp = 0.0;
   pressure = 0.0;
-  vibX = 0.0;
-  vibY = 0.0;
-  vibZ = 0.0;
+  intTemp = 0.0;
+  accelX = 0.0;
+  accelY = 0.0;
+  accelZ = 0.0;
 }
 
 void setup() 
@@ -112,123 +104,106 @@ void checkForStopSignal()
 }
 
 DataBlock pollSensors()
-
 {
   DataBlock currDataBlock;
   
-  float currTemp = readTemp();
-  currDataBlock.temp = currTemp;
+  float currExtTemp = readExtTemp();
+  currDataBlock.extTemp = currExtTemp;
   
   float currPres = readPressure();
   currDataBlock.pressure = currPres;
   
-  float currVibX = readVibX();
-  currDataBlock.vibX = currVibX;
+  float currIntTemp = readIntTemp();
+  currDataBlock.intTemp = currIntTemp;
   
-  float currVibY = readVibY();
-  currDataBlock.vibY = currVibY;
+  float currAccelX = readAccelX();
+  currDataBlock.accelX = currAccelX;
   
-  float currVibZ = readVibZ();
-  currDataBlock.vibZ = currVibZ;
+  float currAccelY = readAccelY();
+  currDataBlock.accelY = currAccelY;
+  
+  float currAccelZ = readAccelZ();
+  currDataBlock.accelZ = currAccelZ;
 
   return currDataBlock;
 }
 
-float readTemp()
+float readExtTemp()
 {
-  float currTemp = max.temperature(100, RREF);
-  return currTemp;
+  float currExtTemp = max.temperature(100, RREF);
+  return currExtTemp;
+}
+
+float readIntTemp()
+{
+  float currIntTemp = bme.readTemperature();
+  return currIntTemp;
 }
 
 float readPressure()
 {
-  float currPres = 0.0;
+  float currPres = bme.readPressure();
   return currPres;
 }
 
-float readVibX()
+float readAccelX()
 {
-  float currVibX = 0.0;
-  return currVibX;
+  sensors_event_t event; 
+  lis.getEvent(&event);
+  float currAccelX = event.acceleration.x;
+  return currAccelX;
 }
 
-float readVibY()
+float readAccelY()
 {
-  float currVibY = 0.0;
-  return currVibY;
+  sensors_event_t event; 
+  lis.getEvent(&event);
+  float currAccelY = event.acceleration.y;
+  return currAccelY;
 }
 
-float readVibZ()
+float readAccelZ()
 {
-  float currVibZ = 0.0;
-  return currVibZ;
+  sensors_event_t event; 
+  lis.getEvent(&event);
+  float currAccelZ = event.acceleration.z;
+  return currAccelZ;
 }
 
 void writeToCSV(DataBlock dataToWrite)
 {  
- /* //Print Temperature data
-  Serial.print("Temp: ");
-  Serial.print(dataToWrite.temp);
+  //Print Temperature data
+  Serial.print("External Temp: ");
+  Serial.print(dataToWrite.extTemp);
   Serial.print(" ");
-  
-  //Print Pressure data
+
   Serial.print("Pressure: ");
   Serial.print(dataToWrite.pressure);
   Serial.print(" ");
 
-  //Print Vibration on X data
-  Serial.print("Vibration X: ");
-  Serial.print(dataToWrite.vibX);
+  Serial.print("Internal Temp: ");
+  Serial.print(dataToWrite.intTemp);
   Serial.print(" ");
 
-  //Print Vibration on Y axis data
-  Serial.print("Vibration Y: ");
-  Serial.print(dataToWrite.vibY);
+  Serial.print("Acceleration X: ");
+  Serial.print(dataToWrite.accelX);
   Serial.print(" ");
 
-  //Print Vibration on Z axis data
-  Serial.print("Vibration Z: ");
-  Serial.print(dataToWrite.vibZ);
+  Serial.print("Acceleration Y: ");
+  Serial.print(dataToWrite.accelY);
+  Serial.print(" ");
+
+  Serial.print("Acceleration Z: ");
+  Serial.print(dataToWrite.accelZ);
   Serial.print(" ");
 
   Serial.println();
-  */
-  
   //TODO write each member of the class to the csv file according to proper format
-
-  // build the data string
-  dataString = String("test temp"/*dataToWrite.temp*/) + "," + String("test pressure"/*dataToWrite.pressure*/) + "," + String("test vibX"/*dataToWrite.vibX*/) + "," + String("test vibY" /*dataToWrite.vibY*/) + "," +String("test vibZ"/*dataToWrite.vibZ*/); // convert to CSV
-  
-  if(SD.exists("data.csv")){ // check the card is still there
-     // now append new data file
-      sensorData = SD.open("data.csv", FILE_WRITE);
-      if (sensorData){
-      sensorData.println(dataString);
-      
-      }
-  else{
-    Serial.println("Error writing to file !");
-    }
-  }
- delay(60000); // delay before next write to SD Card, adjust as required
-
 }
 
 void initCSV()
 {
   //TODO open intitialize, and set up the CSV file
-
-  Serial.print("Initializing SD card...");
-  pinMode(CSpin, OUTPUT);
-
-  // see if the card is present and can be initialized:
-    if (!SD.begin(CSpin)) {
-        Serial.println("Card failed, or not present");
-
-    return;
-  }
-  Serial.println("card initialized.");
-
 }
 
 void initSensors()
@@ -236,35 +211,34 @@ void initSensors()
   //Initialize the serial bus the sensors will be using
   Serial.begin(115200);
   
-  //TODO: initialize the sensors on the serial bus
+  //initialize the sensors on the serial bus
+  
   //Temp Sensor
   max.begin(MAX31865_3WIRE);  // set to 2WIRE or 4WIRE as necessary
-<<<<<<< HEAD
-=======
-
->>>>>>> d277c921bc4abfa7f156440d8e529f7f6bba9771
 
   //Pressure and int temp sensor
   if (!bme.begin()) {  
     Serial.println("Could not find a valid BMP280 sensor, check wiring!");
     while (1);
   }
-<<<<<<< HEAD
-=======
-
->>>>>>> d277c921bc4abfa7f156440d8e529f7f6bba9771
 
   //Accelerometer
-  
+  #ifndef ESP8266
+    while (!Serial);     // will pause Zero, Leonardo, etc until serial console opens
+  #endif
+  if (! lis.begin(0x18)) {   // change this to 0x19 for alternative i2c address
+    Serial.println("Couldnt start");
+    while (1);
+  }
+  lis.setRange(LIS3DH_RANGE_4_G);   // 2, 4, 8 or 16 G!
+
 }
 
 void finish()
 {
   //TODO: close the CSV file
-   sensorData.close();
-   
   //TODO: sever connections to sensors nicely if needed
-  //TODO: power down, or wait for signal to start recording again (don't know what we are supposed to do here)
+  //TODO: power down, or wait for signal to start recording again (don't know what wer are supposed to do here)
 }
 
 
@@ -273,4 +247,3 @@ void loop()
 { 
 
 }
-

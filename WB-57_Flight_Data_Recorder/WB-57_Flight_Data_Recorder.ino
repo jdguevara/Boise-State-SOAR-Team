@@ -3,8 +3,24 @@
 #include <SPI.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+#include "SD.h"
+#include "SPI.h"
+ 
+=======
+>>>>>>> 8ed2c668645b02884abc6a16a624019ae8fca875
+#include <Adafruit_MAX31865.h>
+#include "SD.h"
+#include "SPI.h"
+>>>>>>> 8a208e4ccd6c89a297125b86b0ea423a221a8405
 
 #include <Adafruit_MAX31865.h>
+
+// CSV string variables
+String dataString =""; // holds the data to be written to the SD card
+File sensorData;
 
 //Declarations for imported hardware firmware classes
 
@@ -215,6 +231,15 @@ void initSensors()
   
   //Temp Sensor
   max.begin(MAX31865_3WIRE);  // set to 2WIRE or 4WIRE as necessary
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+
+>>>>>>> d277c921bc4abfa7f156440d8e529f7f6bba9771
+>>>>>>> 8a208e4ccd6c89a297125b86b0ea423a221a8405
 
   //Pressure and int temp sensor
   if (!bme.begin()) {  
@@ -223,6 +248,7 @@ void initSensors()
   }
 
   //Accelerometer
+<<<<<<< HEAD
   #ifndef ESP8266
     while (!Serial);     // will pause Zero, Leonardo, etc until serial console opens
   #endif
@@ -232,6 +258,10 @@ void initSensors()
   }
   lis.setRange(LIS3DH_RANGE_4_G);   // 2, 4, 8 or 16 G!
 
+=======
+  
+>>>>>>> 8ed2c668645b02884abc6a16a624019ae8fca875
+>>>>>>> 8a208e4ccd6c89a297125b86b0ea423a221a8405
 }
 
 void finish()
@@ -241,7 +271,13 @@ void finish()
   //TODO: power down, or wait for signal to start recording again (don't know what wer are supposed to do here)
 }
 
-
+void checkForGoSignal()
+{
+  if (1) //fill in once we know how to get the plane's wheels up signal
+  {
+    isRecording = true;
+  }
+}
 
 void loop() 
 { 

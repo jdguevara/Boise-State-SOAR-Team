@@ -3,10 +3,19 @@
 #include <SPI.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
+<<<<<<< HEAD
 #include "SD.h"
 #include "SPI.h"
  
+=======
+>>>>>>> 8ed2c668645b02884abc6a16a624019ae8fca875
 #include <Adafruit_MAX31865.h>
+#include "SD.h"
+#include "SPI.h"
+
+// CSV string variables
+String dataString =""; // holds the data to be written to the SD card
+File sensorData;
 
 // CSV string variables
 String dataString =""; // holds the data to be written to the SD card
@@ -16,16 +25,21 @@ File sensorData;
 
 //Temp Sensor
 #define MAX31865_CS 7 // CS pin
-#define RREF 430.0 // The value of the Rref resistor. Use 430.0!
 Adafruit_MAX31865 max = Adafruit_MAX31865(MAX31865_CS); // Use hardware SPI, just pass in the CS pin
+#define RREF 430.0 // The value of the Rref resistor. Use 430.0!
 
 //Pressure Sensor
+<<<<<<< HEAD
+
+#define BMP_CS 6
+Adafruit_BMP280 bme(BMP_CS); // hardware SPI
+=======
 #define BMP_CS 6
 Adafruit_BMP280 bme(BMP_CS); // hardware SPI
 
+>>>>>>> d277c921bc4abfa7f156440d8e529f7f6bba9771
 
 // Accelerometer
-
 
 //Software Instance variables
 bool isRecording;
@@ -35,14 +49,14 @@ const int POLLING_RATE = (int)((1/(double)400)*1000); //the polling rate, expres
 
 //class Defintions
 /**
- * DataBlock class to represent a collection of all current readings from the sensors
+ * DataBlock class to represent a collection of all current readings from the 
+sensors
  */
 class DataBlock
 {
   public:
-    float extTemp;
+    float temp;
     float pressure;
-    float intTemp;
     float vibX;
     float vibY;
     float vibZ;
@@ -52,9 +66,8 @@ class DataBlock
 //constructor for the DataBlock object
 DataBlock::DataBlock(void)
 {
-  extTemp = 0.0;
+  temp = 0.0;
   pressure = 0.0;
-  intTemp = 0.0;
   vibX = 0.0;
   vibY = 0.0;
   vibZ = 0.0;
@@ -109,17 +122,15 @@ void checkForStopSignal()
 }
 
 DataBlock pollSensors()
+
 {
   DataBlock currDataBlock;
   
-  float currExtTemp = readExtTemp();
-  currDataBlock.extTemp = currExtTemp;
+  float currTemp = readTemp();
+  currDataBlock.temp = currTemp;
   
   float currPres = readPressure();
   currDataBlock.pressure = currPres;
-  
-  float currIntTemp = readIntTemp();
-  currDataBlock.intTemp = currIntTemp;
   
   float currVibX = readVibX();
   currDataBlock.vibX = currVibX;
@@ -133,21 +144,15 @@ DataBlock pollSensors()
   return currDataBlock;
 }
 
-float readExtTemp()
+float readTemp()
 {
-  float currExtTemp = max.temperature(100, RREF);
-  return currExtTemp;
-}
-
-float readIntTemp()
-{
-  float currIntTemp = bme.readTemperature();
-  return currIntTemp;
+  float currTemp = max.temperature(100, RREF);
+  return currTemp;
 }
 
 float readPressure()
 {
-  float currPres = bme.readPressure();
+  float currPres = 0.0;
   return currPres;
 }
 
@@ -244,6 +249,26 @@ void initSensors()
   //TODO: initialize the sensors on the serial bus
   //Temp Sensor
   max.begin(MAX31865_3WIRE);  // set to 2WIRE or 4WIRE as necessary
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+
+>>>>>>> d277c921bc4abfa7f156440d8e529f7f6bba9771
+
+  //Pressure and int temp sensor
+  if (!bme.begin()) {  
+    Serial.println("Could not find a valid BMP280 sensor, check wiring!");
+    while (1);
+  }
+<<<<<<< HEAD
+=======
+
+>>>>>>> d277c921bc4abfa7f156440d8e529f7f6bba9771
+
+  //Accelerometer
+  
+>>>>>>> 8ed2c668645b02884abc6a16a624019ae8fca875
 }
 
 void finish()
@@ -252,7 +277,7 @@ void finish()
    sensorData.close();
    
   //TODO: sever connections to sensors nicely if needed
-  //TODO: power down, or wait for signal to start recording again (don't know what wer are supposed to do here)
+  //TODO: power down, or wait for signal to start recording again (don't know what we are supposed to do here)
 }
 
 void checkForGoSignal()
@@ -267,3 +292,4 @@ void loop()
 { 
 
 }
+

@@ -14,19 +14,8 @@
 Adafruit_MAX31865 max = Adafruit_MAX31865(MAX31865_CS); // Use hardware SPI, just pass in the CS pin
 
 //Pressure Sensor
-<<<<<<< HEAD
 #define BMP_CS 6
 Adafruit_BMP280 bme(BMP_CS); // hardware SPI
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
-
->>>>>>> b5e755028bb69922ec4e406b932f65675650b86a
->>>>>>> f0740030eae60195e2c99085ff0188a0adf6cab2
-
->>>>>>> b5e755028bb69922ec4e406b932f65675650b86a
 
 
 // Accelerometer
@@ -218,30 +207,17 @@ void initSensors()
   //TODO: initialize the sensors on the serial bus
   //Temp Sensor
   max.begin(MAX31865_3WIRE);  // set to 2WIRE or 4WIRE as necessary
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> f0740030eae60195e2c99085ff0188a0adf6cab2
+
 
   //Pressure and int temp sensor
   if (!bme.begin()) {  
     Serial.println("Could not find a valid BMP280 sensor, check wiring!");
     while (1);
   }
-<<<<<<< HEAD
-=======
+
 
   //Accelerometer
   
-=======
->>>>>>> b5e755028bb69922ec4e406b932f65675650b86a
-=======
->>>>>>> b5e755028bb69922ec4e406b932f65675650b86a
-=======
->>>>>>> b5e755028bb69922ec4e406b932f65675650b86a
->>>>>>> f0740030eae60195e2c99085ff0188a0adf6cab2
 }
 
 void finish()

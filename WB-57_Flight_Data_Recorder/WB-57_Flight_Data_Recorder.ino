@@ -26,6 +26,9 @@ Adafruit_BMP280 bme(BMP_CS); // hardware SPI
 #define LIS3DH_CS 5
 Adafruit_LIS3DH lis = Adafruit_LIS3DH(LIS3DH_CS);
 
+//SD Reader
+#define SD_CS 28
+
 //Software Instance variables
 bool isRecording;
 
@@ -203,47 +206,47 @@ void writeToCSV(DataBlock dataToWrite)
 
   Serial.println(); */
   //TODO write each member of the class to the csv file according to proper format
-}
 
  // build the data string
-  dataString = String("test temp"/*dataToWrite.temp*/) + "," + 
-  String("test pressure"/*dataToWrite.pressure*/) + "," + 
-  String("test vibX"/*dataToWrite.vibX*/) + "," + 
-  String("test vibY" /*dataToWrite.vibY*/) + "," + 
-  String("test vibZ"/*dataToWrite.vibZ*/); // convert to CSV
+  dataString = String(dataToWrite.extTemp + ',' + dataToWrite.pressure + ',' + dataToWrite.accelX + ',' + dataToWrite.accelY + ',' + dataToWrite.accelZ); // convert to CSV
   
-  if(SD.exists("data.csv")){ // check the card is still there
-     // now append new data file
-      sensorData = SD.open("data.csv", FILE_WRITE);
-      if (sensorData)
-      {
-          sensorData.println(dataString);
-      }
-  else{
-    Serial.println("Error writing to file !");
-      }
+  if(SD.exists("data.csv")) // check the card is still there
+  {
+    sensorData.println(dataString);
   }
- delay(60000); // delay before next write to SD Card, adjust as required
-
+  else
+  {
+    Serial.println("Error writing to file !");
+  }
 }
 
 void initCSV()
 {
-  {
   //TODO open intitialize, and set up the CSV file
 
   Serial.print("Initializing SD card...");
-  pinMode(CSpin, OUTPUT);
+  pinMode(SD_CS, OUTPUT);
 
   // see if the card is present and can be initialized:
-    if (!SD.begin(CSpin)) {
+  if (!SD.begin(SD_CS)) 
+  {
         Serial.println("Card failed, or not present");
-
-    return;
+        return;
   }
-  Serial.println("card initialized.");
+  Serial.println("Card initialized.");
 
-}
+  if(SD.exists("data.csv"))
+  {
+    sensorData = SD.open("data.csv", FILE_WRITE);
+    if (sensorData)
+    {
+      sensorData.println("External Temperature, Barometric Pressure, Acceleration X, Acceleration Y, Acceleration Z");
+    }
+    else
+    {
+      Serial.println("Error writing to file !");
+    }
+  }
 }
 
 void initSensors()
@@ -275,7 +278,6 @@ void initSensors()
 
 void finish()
 {
-  //TODO: close the CSV file
   sensorData.close();
   //TODO: sever connections to sensors nicely if needed
   //TODO: power down, or wait for signal to start recording again (don't know what wer are supposed to do here)

@@ -177,9 +177,9 @@ float readAccelZ()
   return currAccelZ;
 }
 
-void writeToCSV(DataBlock dataToWrite)
-{  
- /* //Print Temperature data
+void printToConsole(DataBlock dataToWrite)
+{
+  //Print Temperature data
   Serial.print("External Temp: ");
   Serial.print(dataToWrite.extTemp);
   Serial.print(" ");
@@ -204,34 +204,29 @@ void writeToCSV(DataBlock dataToWrite)
   Serial.print(dataToWrite.accelZ);
   Serial.print(" ");
 
-  Serial.println(); */
-  //TODO write each member of the class to the csv file according to proper format
+  Serial.println();
+}
 
- // build the data string
+void writeToCSV(DataBlock dataToWrite)
+{  
+  // build the data string
   dataString = String(dataToWrite.extTemp + ',' + dataToWrite.pressure + ',' + dataToWrite.accelX + ',' + dataToWrite.accelY + ',' + dataToWrite.accelZ); // convert to CSV
-  
-  if(SD.exists("data.csv")) // check the card is still there
-  {
-    sensorData.println(dataString);
-  }
-  else
-  {
-    Serial.println("Error writing to file !");
-  }
+
+  //write the string to the csv
+  sensorData.println(dataString);
+  Serial.println("Datablock written to CSV");
 }
 
 void initCSV()
 {
-  //TODO open intitialize, and set up the CSV file
-
   Serial.print("Initializing SD card...");
   pinMode(SD_CS, OUTPUT);
 
   // see if the card is present and can be initialized:
   if (!SD.begin(SD_CS)) 
   {
-        Serial.println("Card failed, or not present");
-        return;
+    Serial.println("Card failed, or not present");
+    return;
   }
   Serial.println("Card initialized.");
 
@@ -244,7 +239,7 @@ void initCSV()
     }
     else
     {
-      Serial.println("Error writing to file !");
+      Serial.println("Error writing to file!");
     }
   }
 }

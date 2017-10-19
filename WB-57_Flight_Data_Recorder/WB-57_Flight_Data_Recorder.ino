@@ -77,8 +77,10 @@ void initialization()
 {
   isRecording = false;
   totalEntries = 0;
-  
+
+  Serial.println("Initializing CSV");
   initCSV();
+  
   initSensors();
  // initHeater();
   while (!isRecording)
@@ -92,14 +94,13 @@ void initialization()
 
 void record()
 {
-  checkForStopSignal();
   while (isRecording)
   {
+    checkForStopSignal();
     DataBlock currentReadings = pollSensors();
   //  updateHeater(currentReadings.intTemp);
     writeToCSV(currentReadings);
     totalEntries++;
-    Serial.println("Data block entry written to SD");
     delay(POLLING_RATE); //enforce the polling rate with a hardware no-op for the duration of gap time
   }
   finish();
@@ -264,6 +265,7 @@ void initSensors()
 {
   //Initialize the serial bus the sensors will be using
   Serial.begin(115200);
+  Serial.println("Initializing Sensors...");
   
   //initialize the sensors on the serial bus
   
@@ -281,7 +283,7 @@ void initSensors()
     while (!Serial);     // will pause Zero, Leonardo, etc until serial console opens
   #endif
   if (! lis.begin(0x18)) {   // change this to 0x19 for alternative i2c address
-    Serial.println("Couldnt start");
+    Serial.println("Couldn't start accelerometer");
     while (1);
   }
   lis.setRange(LIS3DH_RANGE_4_G);   // 2, 4, 8 or 16 G!

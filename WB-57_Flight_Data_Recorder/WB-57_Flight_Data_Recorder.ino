@@ -3,8 +3,7 @@
 #include <SPI.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
-#include "SD.h"
-#include "SPI.h"
+#include <SD.h>
 #include <Adafruit_MAX31865.h>
 
 // CSV string variables
@@ -29,8 +28,13 @@ Adafruit_LIS3DH lis = Adafruit_LIS3DH(LIS3DH_CS);
 //SD Reader
 #define SD_CS 28
 
+//Internal Heater
+#define HEATER_PIN 4 //pin for the PWM output for the heater
+char dutyCycle;
+
 //Software Instance variables
 bool isRecording;
+int totalEntries;
 
 //Constants
 const int POLLING_RATE = (int)((1/(double)400)*1000); //the polling rate, expressed in miliseconds (400Hz = 1/400ms)
@@ -64,6 +68,7 @@ DataBlock::DataBlock(void)
 
 void setup() 
 {
+  Serial.println("Initializing software");
   initialization();  
   
 }
@@ -71,14 +76,17 @@ void setup()
 void initialization()
 {
   isRecording = false;
+  totalEntries = 0;
   
   initCSV();
   initSensors();
+ // initHeater();
   while (!isRecording)
   {
     checkForGoSignal();
     Serial.println("waiting for go signal to start recording");
   }
+  Serial.println("Software Initialized");
   record();
 }
 
@@ -88,7 +96,10 @@ void record()
   while (isRecording)
   {
     DataBlock currentReadings = pollSensors();
+  //  updateHeater(currentReadings.intTemp);
     writeToCSV(currentReadings);
+    totalEntries++;
+    Serial.println("Data block entry written to SD");
     delay(POLLING_RATE); //enforce the polling rate with a hardware no-op for the duration of gap time
   }
   finish();
@@ -104,6 +115,11 @@ void checkForGoSignal()
 
 void checkForStopSignal()
 {
+  if(totalEntries > 100) //for testing, limit recording entries to 100
+  {
+    isRecording = false;
+  }
+  
   if (0) //fill in once we know what the wheels down singal is going to look like to our software
   {
     isRecording = false;
@@ -270,6 +286,19 @@ void initSensors()
   }
   lis.setRange(LIS3DH_RANGE_4_G);   // 2, 4, 8 or 16 G!
 }
+
+void initHeater()
+{
+  dutyCycle = 0;
+  analogWrite(HEATER_PIN ,dutyCycle);
+}
+
+void updateHeater(float intTemp)
+{
+  dutyCycle = (char)(10 * 2.55); //scale percentage duty cycle to between 0 and 255
+  analogWrite(HEATER_PIN, dutyCycle);
+}
+
 
 void finish()
 {

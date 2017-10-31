@@ -13,12 +13,12 @@ File sensorData;
 //Declarations for imported hardware firmware classes
 
 //Temp Sensor
-#define MAX31865_CS 7 // CS pin
+#define MAX31865_CS 6//7 // CS pin
 #define RREF 430.0 // The value of the Rref resistor. Use 430.0!
 Adafruit_MAX31865 max = Adafruit_MAX31865(MAX31865_CS); // Use hardware SPI, just pass in the CS pin
 
 //Pressure Sensor
-#define BMP_CS 6
+#define BMP_CS 7//6
 Adafruit_BMP280 bme(BMP_CS); // hardware SPI
 
 // Accelerometer
@@ -68,6 +68,7 @@ DataBlock::DataBlock(void)
 
 void setup() 
 {
+  Serial.begin(9600); // Why didn't my serialMonitor work without this?
   Serial.println("Initializing software");
   initialization();  
   
@@ -258,6 +259,9 @@ void initCSV()
     {
       Serial.println("Error writing to file!");
     }
+  }
+  else {
+    Serial.println("Did not find data.csv");
   }
 }
 

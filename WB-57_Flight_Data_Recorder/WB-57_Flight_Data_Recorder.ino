@@ -26,7 +26,7 @@ Adafruit_BMP280 bme(BMP_CS); // hardware SPI
 Adafruit_LIS3DH lis = Adafruit_LIS3DH(LIS3DH_CS);
 
 //SD Reader
-#define SD_CS 28
+#define SD_CS SDCARD_SS_PIN
 
 //Internal Heater
 #define HEATER_PIN 4 //pin for the PWM output for the heater
@@ -35,6 +35,7 @@ char dutyCycle;
 //Software Instance variables
 bool isRecording;
 int totalEntries;
+const String CSV_FILENAME = "DATA.CSV";
 
 //Constants
 const int POLLING_RATE = (int)((1/(double)400)*1000); //the polling rate, expressed in miliseconds (400Hz = 1/400ms)
@@ -46,12 +47,12 @@ const int POLLING_RATE = (int)((1/(double)400)*1000); //the polling rate, expres
 class DataBlock
 {
   public:
-    float extTemp;
-    float pressure;
-    float intTemp;
-    float accelX;
-    float accelY;
-    float accelZ;
+    double extTemp;
+    double pressure;
+    double intTemp;
+    double accelX;
+    double accelY;
+    double accelZ;
     DataBlock();
 };
 
@@ -68,7 +69,6 @@ DataBlock::DataBlock(void)
 
 void setup() 
 {
-  Serial.begin(9600); // Why didn't my serialMonitor work without this?
   Serial.println("Initializing software");
   initialization();  
   
@@ -79,10 +79,13 @@ void initialization()
   isRecording = false;
   totalEntries = 0;
 
-  Serial.println("Initializing CSV");
-  initCSV();
+  //Initialize the serial bus
+  Serial.begin(115200);
   
-  initSensors();
+  initSensors();  
+  Serial.println("Initializing CSV");
+  initCSV(); 
+
  // initHeater();
   while (!isRecording)
   {
@@ -101,6 +104,7 @@ void record()
     DataBlock currentReadings = pollSensors();
   //  updateHeater(currentReadings.intTemp);
     writeToCSV(currentReadings);
+    //printToConsole(currentReadings);
     totalEntries++;
     delay(POLLING_RATE); //enforce the polling rate with a hardware no-op for the duration of gap time
   }
@@ -132,66 +136,66 @@ DataBlock pollSensors()
 {
   DataBlock currDataBlock;
   
-  float currExtTemp = readExtTemp();
+  double currExtTemp = readExtTemp();
   currDataBlock.extTemp = currExtTemp;
   
-  float currPres = readPressure();
+  double currPres = readPressure();
   currDataBlock.pressure = currPres;
   
-  float currIntTemp = readIntTemp();
+  double currIntTemp = readIntTemp();
   currDataBlock.intTemp = currIntTemp;
   
-  float currAccelX = readAccelX();
+  double currAccelX = readAccelX();
   currDataBlock.accelX = currAccelX;
   
-  float currAccelY = readAccelY();
+  double currAccelY = readAccelY();
   currDataBlock.accelY = currAccelY;
   
-  float currAccelZ = readAccelZ();
+  double currAccelZ = readAccelZ();
   currDataBlock.accelZ = currAccelZ;
 
   return currDataBlock;
 }
 
-float readExtTemp()
+double readExtTemp()
 {
-  float currExtTemp = max.temperature(100, RREF);
+  double currExtTemp = max.temperature(100, RREF);
   return currExtTemp;
 }
 
-float readIntTemp()
+double readIntTemp()
 {
-  float currIntTemp = bme.readTemperature();
+  double currIntTemp = bme.readTemperature();
   return currIntTemp;
 }
 
-float readPressure()
+double readPressure()
 {
-  float currPres = bme.readPressure();
+  double currPres = bme.readPressure();
   return currPres;
 }
 
-float readAccelX()
+double readAccelX()
 {
   sensors_event_t event; 
   lis.getEvent(&event);
-  float currAccelX = event.acceleration.x;
+  double currAccelX = event.acceleration.x;
   return currAccelX;
 }
 
-float readAccelY()
+double readAccelY()
 {
   sensors_event_t event; 
   lis.getEvent(&event);
-  float currAccelY = event.acceleration.y;
+  double currAccelY = event.acceleration.y;
   return currAccelY;
 }
 
-float readAccelZ()
+double readAccelZ()
 {
   sensors_event_t event; 
   lis.getEvent(&event);
-  float currAccelZ = event.acceleration.z;
+  double currAccelZ = event.acceleration.z;
   return currAccelZ;
 }
 
@@ -228,47 +232,49 @@ void printToConsole(DataBlock dataToWrite)
 void writeToCSV(DataBlock dataToWrite)
 {  
   // build the data string
-  dataString = String(dataToWrite.extTemp + ',' + dataToWrite.pressure + ',' + dataToWrite.accelX + ',' + dataToWrite.accelY + ',' + dataToWrite.accelZ); // convert to CSV
-
+  dataString = String(dataToWrite.extTemp + ',' + dataToWrite.extTemp + ',' + dataToWrite.accelX + ',' + dataToWrite.accelY + ',' + dataToWrite.accelZ); // convert to CSV
+  Serial.println(dataString);
   //write the string to the csv
+  sensorData = SD.open(CSV_FILENAME, FILE_WRITE);
   sensorData.println(dataString);
+  sensorData.close();
   Serial.println("Datablock written to CSV");
 }
 
 void initCSV()
 {
-  Serial.print("Initializing SD card...");
+  Serial.println("Initializing SD card...");
   pinMode(SD_CS, OUTPUT);
 
   // see if the card is present and can be initialized:
   if (!SD.begin(SD_CS)) 
   {
     Serial.println("Card failed, or not present");
+    loop(); //go into infinite loop if no sd card
     return;
   }
+  
   Serial.println("Card initialized.");
 
-  if(SD.exists("data.csv"))
+  if(SD.exists(CSV_FILENAME))
   {
-    sensorData = SD.open("data.csv", FILE_WRITE);
-    if (sensorData)
-    {
-      sensorData.println("External Temperature, Barometric Pressure, Acceleration X, Acceleration Y, Acceleration Z");
-    }
-    else
-    {
-      Serial.println("Error writing to file!");
-    }
+    Serial.println("Data.csv exists, deleting old version");
+    SD.remove(CSV_FILENAME);
   }
-  else {
-    Serial.println("Did not find data.csv");
+  sensorData = SD.open(CSV_FILENAME, FILE_WRITE);
+  if (sensorData)
+  {
+    sensorData.println("External Temperature, Barometric Pressure, Acceleration X, Acceleration Y, Acceleration Z");
+    sensorData.close();
+  }
+  else
+  {
+    Serial.println("Error writing to file!");
   }
 }
 
 void initSensors()
 {
-  //Initialize the serial bus the sensors will be using
-  Serial.begin(115200);
   Serial.println("Initializing Sensors...");
   
   //initialize the sensors on the serial bus
@@ -299,7 +305,7 @@ void initHeater()
   analogWrite(HEATER_PIN ,dutyCycle);
 }
 
-void updateHeater(float intTemp)
+void updateHeater(double intTemp)
 {
   dutyCycle = (char)(10 * 2.55); //scale percentage duty cycle to between 0 and 255
   analogWrite(HEATER_PIN, dutyCycle);
@@ -316,5 +322,5 @@ void finish()
 
 void loop() 
 { 
-
+  while(1);
 }

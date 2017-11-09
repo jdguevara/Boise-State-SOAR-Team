@@ -33,9 +33,10 @@ Adafruit_LIS3DH lis = Adafruit_LIS3DH(LIS3DH_CS);
 char dutyCycle;
 
 //Software Instance variables
-bool isRecording;
-int totalEntries;
+bool isRecording; //whether or not the recorder is running
+int totalEntries; //total number of recorded entries
 const String CSV_FILENAME = "DATA.CSV";
+const int DESIRED_TEMP = 15; //desired temperature of the box, what the pwm of the heater works toward, in celsius
 
 //Constants
 const int POLLING_RATE = (int)((1/(double)400)*1000); //the polling rate, expressed in miliseconds (400Hz = 1/400ms)
@@ -86,7 +87,7 @@ void initialization()
   Serial.println("Initializing CSV");
   initCSV(); 
 
- // initHeater();
+  initHeater();
   while (!isRecording)
   {
     checkForGoSignal();
@@ -242,8 +243,7 @@ void writeToCSV(DataBlock dataToWrite)
   dataString.concat(dataToWrite.accelY);
   dataString.concat(", ");
   dataString.concat(dataToWrite.accelZ);
-  //dataString = String(dataToWrite.extTemp + ',' + dataToWrite.extPressure + ',' + dataToWrite.accelX + ',' + dataToWrite.accelY + ',' + dataToWrite.accelZ); // convert to CSV
-  Serial.println("Datablock " + dataString);
+  //Serial.println("Datablock " + dataString);
   
   //write the string to the csv
   sensorData = SD.open(CSV_FILENAME, FILE_WRITE);
@@ -318,6 +318,10 @@ void initHeater()
 
 void updateHeater(double intTemp)
 {
+  double desired = DESIRED_TEMP;
+  double actual = intTemp;
+  double tempDeviance = desired - actual; //difference between actual and desired temps, positive if temp needs to go up
+  //TODO: scale the deviance to change the duty cycle from 0 to 255
   dutyCycle = (char)(10 * 2.55); //scale percentage duty cycle to between 0 and 255
   analogWrite(HEATER_PIN, dutyCycle);
 }

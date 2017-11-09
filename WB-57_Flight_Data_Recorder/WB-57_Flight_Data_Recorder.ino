@@ -202,15 +202,15 @@ double readAccelZ()
 void printToConsole(DataBlock dataToWrite)
 {
   //Print Temperature data
-  Serial.print("External Temp: ");
+  Serial.print("External Temp (°C): ");
   Serial.print(dataToWrite.extTemp);
   Serial.print(" ");
 
-  Serial.print("Pressure: ");
+  Serial.print("Pressure (Pa): ");
   Serial.print(dataToWrite.pressure);
   Serial.print(" ");
 
-  Serial.print("Internal Temp: ");
+  Serial.print("Internal Temp (°C): ");
   Serial.print(dataToWrite.intTemp);
   Serial.print(" ");
 

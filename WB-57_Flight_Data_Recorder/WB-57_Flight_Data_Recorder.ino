@@ -232,8 +232,19 @@ void printToConsole(DataBlock dataToWrite)
 void writeToCSV(DataBlock dataToWrite)
 {  
   // build the data string
-  dataString = String(dataToWrite.extTemp + ',' + dataToWrite.extTemp + ',' + dataToWrite.accelX + ',' + dataToWrite.accelY + ',' + dataToWrite.accelZ); // convert to CSV
-  Serial.println(dataString);
+  dataString = "";
+  dataString.concat(dataToWrite.extTemp);
+  dataString.concat(", ");
+  dataString.concat(dataToWrite.pressure);
+  dataString.concat(", ");
+  dataString.concat(dataToWrite.accelX);
+  dataString.concat(",");
+  dataString.concat(dataToWrite.accelY);
+  dataString.concat(", ");
+  dataString.concat(dataToWrite.accelZ);
+  //dataString = String(dataToWrite.extTemp + ',' + dataToWrite.extPressure + ',' + dataToWrite.accelX + ',' + dataToWrite.accelY + ',' + dataToWrite.accelZ); // convert to CSV
+  Serial.println("Datablock " + dataString);
+  
   //write the string to the csv
   sensorData = SD.open(CSV_FILENAME, FILE_WRITE);
   sensorData.println(dataString);

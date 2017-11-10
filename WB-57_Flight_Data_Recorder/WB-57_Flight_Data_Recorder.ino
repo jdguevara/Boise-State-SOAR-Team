@@ -274,7 +274,7 @@ void initCSV()
   sensorData = SD.open(CSV_FILENAME, FILE_WRITE);
   if (sensorData)
   {
-    sensorData.println("External Temperature, Barometric Pressure, Acceleration X, Acceleration Y, Acceleration Z");
+    sensorData.println("External Temperature (°C), Barometric Pressure (Pa), Acceleration X, Acceleration Y, Acceleration Z");
     sensorData.close();
   }
   else

@@ -6,10 +6,6 @@
 #include <SD.h>
 #include <Adafruit_MAX31865.h>
 
-// CSV string variables
-String dataString = ""; // holds the data to be written to the SD card
-File sensorData;
-
 //Declarations for imported hardware firmware classes
 
 //Temp Sensor
@@ -35,11 +31,14 @@ char dutyCycle;
 //Software Instance variables
 bool isRecording; //whether or not the recorder is running
 int totalEntries; //total number of recorded entries
-const String CSV_FILENAME = "DATA.CSV";
-const int DESIRED_TEMP = 15; //desired temperature of the box, what the pwm of the heater works toward, in celsius
+String dataString = ""; // holds the String of one line to be written to the CSV file
+File sensorData; //pointer to the file on the SD
 
 //Constants
 const int POLLING_RATE = (int)((1/(double)400)*1000); //the polling rate, expressed in miliseconds (400Hz = 1/400ms)
+const int DESIRED_TEMP = 15; //desired temperature of the box, what the pwm of the heater works toward, in celsius
+const String CSV_FILENAME = "DATA.CSV"; //the file name of the CSV file on the SD
+
 
 //class Defintions
 /**
@@ -70,13 +69,12 @@ DataBlock::DataBlock(void)
 
 void setup() 
 {
-  Serial.println("Initializing software");
-  initialization();  
-  
+  initialization();
 }
 
 void initialization()
 {
+  Serial.println("Initializing software...");
   isRecording = false;
   totalEntries = 0;
 
@@ -84,16 +82,16 @@ void initialization()
   Serial.begin(115200);
   
   initSensors();  
-  Serial.println("Initializing CSV");
-  initCSV(); 
-
+  initCSV();
   initHeater();
+  
   while (!isRecording)
   {
     checkForGoSignal();
     Serial.println("waiting for go signal to start recording");
   }
-  Serial.println("Software Initialized");
+  
+  Serial.println("Software Initialized. Beginning recording...");
   record();
 }
 
@@ -103,7 +101,7 @@ void record()
   {
     checkForStopSignal();
     DataBlock currentReadings = pollSensors();
-  //  updateHeater(currentReadings.intTemp);
+    updateHeater(currentReadings.intTemp);
     writeToCSV(currentReadings);
     //printToConsole(currentReadings);
     totalEntries++;
@@ -254,24 +252,25 @@ void writeToCSV(DataBlock dataToWrite)
 
 void initCSV()
 {
-  Serial.println("Initializing SD card...");
+  Serial.print("Initializing SD card...");
   pinMode(SD_CS, OUTPUT);
 
   // see if the card is present and can be initialized:
   if (!SD.begin(SD_CS)) 
   {
-    Serial.println("Card failed, or not present");
+    Serial.println("\nCard failed, or not present");
     loop(); //go into infinite loop if no sd card
     return;
-  }
-  
-  Serial.println("Card initialized.");
+  }  
+  Serial.println("Done.");
 
+  Serial.print("Initializing CSV...");
   if(SD.exists(CSV_FILENAME))
   {
-    Serial.println("Data.csv exists, deleting old version");
+    Serial.print("Data.csv exists, deleting old version...");
     SD.remove(CSV_FILENAME);
   }
+
   sensorData = SD.open(CSV_FILENAME, FILE_WRITE);
   if (sensorData)
   {
@@ -280,22 +279,27 @@ void initCSV()
   }
   else
   {
-    Serial.println("Error writing to file!");
+    Serial.println("\nError writing to file!");
   }
+  Serial.println("Done.");
 }
 
 void initSensors()
 {
-  Serial.println("Initializing Sensors...");
+  Serial.print("Initializing Sensors...");
   
   //initialize the sensors on the serial bus
   
   //Temp Sensor
-  max.begin(MAX31865_3WIRE);  // set to 2WIRE or 4WIRE as necessary
+  if (!max.begin(MAX31865_3WIRE)) // set to 2WIRE or 4WIRE as necessary
+  {
+    Serial.println("\n could not start temperature sensor");
+  }
 
   //Pressure and int temp sensor
-  if (!bme.begin()) {  
-    Serial.println("Could not find a valid BMP280 sensor, check wiring!");
+  if (!bme.begin()) 
+  {  
+    Serial.println("\nCould not find a valid BMP280 sensor, check wiring!");
     while (1);
   }
 
@@ -303,26 +307,47 @@ void initSensors()
   #ifndef ESP8266
     while (!Serial);     // will pause Zero, Leonardo, etc until serial console opens
   #endif
-  if (! lis.begin(0x18)) {   // change this to 0x19 for alternative i2c address
-    Serial.println("Couldn't start accelerometer");
-    while (1);
+  if (! lis.begin(0x18)) // change this to 0x19 for alternative i2c address
+  {   
+    Serial.println("\nCouldn't start accelerometer");
   }
   lis.setRange(LIS3DH_RANGE_4_G);   // 2, 4, 8 or 16 G!
+
+  Serial.println("Done.");
 }
 
 void initHeater()
 {
+  Serial.print("Initializing heater...");
   dutyCycle = 0;
-  analogWrite(HEATER_PIN ,dutyCycle);
+  analogWrite(HEATER_PIN, dutyCycle);
+  Serial.println("Done.");
 }
 
+/**
+ * manages the PWM of the heater pad. It works as follows:
+ * -look at the current internal temperature of the box
+ * -subtract the current temperature from the desired temperature (constant), this yields the deviance from desired, which will be a positive value if too cold, a negative value if too hot
+ * -convert the deviance in steps ranging from 1 to 5 away from the desired temp (i.e. 1 unit (degree) too cold, 3 units too hot, 5 units too cold max, 5 units too hot max)
+ * -scale the units to a percentage scale for the duty cycle (i.e. 1 unit too cold = 60% duty cycle, 3 units too hot = 20% duty cycle, 5 too cold = 100% DC, 5 too hot = 0% DC)
+ * -scale the duty cycle from 0 to 255 based on the percentage value (i.e. 0% = 0, 100% = 255)
+ */
 void updateHeater(double intTemp)
 {
   double desired = DESIRED_TEMP;
   double actual = intTemp;
   double tempDeviance = desired - actual; //difference between actual and desired temps, positive if temp needs to go up
-  //TODO: scale the deviance to change the duty cycle from 0 to 255
-  dutyCycle = (char)(10 * 2.55); //scale percentage duty cycle to between 0 and 255
+  char tempSteps = (char) tempDeviance; //truncate deviance to signed integer value of degree difference, this is the number of temp steps off from desired
+  if (tempSteps > 5) //make sure tempSteps is max of 5 and min of -5
+  {
+    tempSteps = 5;
+  }
+  if (tempSteps < -5)
+  {
+    tempSteps = -5;
+  }
+  int dutyCyclePercentage = 50 + (10 * tempSteps); //convert tempSteps to a percentage value
+  dutyCycle = (char)(dutyCyclePercentage * 2.55); //scale percentage duty cycle to between 0 and 255
   analogWrite(HEATER_PIN, dutyCycle);
 }
 

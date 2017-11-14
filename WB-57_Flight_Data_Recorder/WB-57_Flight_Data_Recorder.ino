@@ -31,6 +31,7 @@ char dutyCycle;
 //Software Instance variables
 bool isRecording; //whether or not the recorder is running
 int totalEntries; //total number of recorded entries
+unsigned long lastTime; //the time since the last record call
 String dataString = ""; // holds the String of one line to be written to the CSV file
 File sensorData; //pointer to the file on the SD
 
@@ -77,6 +78,7 @@ void initialization()
   Serial.println("Initializing software...");
   isRecording = false;
   totalEntries = 0;
+  lastTime = millis();
 
   //Initialize the serial bus
   Serial.begin(115200);
@@ -99,13 +101,22 @@ void record()
 {
   while (isRecording)
   {
+    unsigned long currTime = millis();
+    if (currTime < lastTime + POLLING_RATE)
+    {
+      continue;
+    }
     checkForStopSignal();
     DataBlock currentReadings = pollSensors();
-    updateHeater(currentReadings.intTemp);
+    if (totalEntries % 6000 == 0)
+    {
+       updateHeater(currentReadings.intTemp);
+    }
+   
     writeToCSV(currentReadings);
     //printToConsole(currentReadings);
-    totalEntries++;
-    delay(POLLING_RATE); //enforce the polling rate with a hardware no-op for the duration of gap time
+    totalEntries++; 
+    lastTime = currTime;
   }
   finish();
 }
@@ -241,6 +252,8 @@ void writeToCSV(DataBlock dataToWrite)
   dataString.concat(dataToWrite.accelY);
   dataString.concat(", ");
   dataString.concat(dataToWrite.accelZ);
+  dataString.concat(", ");
+  dataString.concat(millis());
   //Serial.println("Datablock " + dataString);
   
   //write the string to the csv

@@ -23,10 +23,6 @@ git clone git@github.com:jdguevara/Boise-State-SOAR-Team.git
 
 Since the module utilizes the Arduino MKRZero board you'll need to use the Arduino IDE in order to interact with the Arduino board and be able to program the module. You can download the IDE [here](https://www.arduino.cc/en/Main/Software), there are links to all the different versions depending on your machine's OS. However, the download link will take you to a page with a large donation banner, but don't worry you don't have to pay for the IDE as the download link is nestled right below the banner.
 
-## Passing the Necessary Libraries to the IDE
-
-<Under construction>
-
 ## Setting Up the Correct Board in the IDE
 
 Once you have the files in your machine, and the IDE downloaded you can access the program and link the board in the following manner:

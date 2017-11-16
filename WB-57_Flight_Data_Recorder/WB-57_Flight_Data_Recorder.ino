@@ -32,21 +32,22 @@ char dutyCycle;
 bool isRecording; //whether or not the recorder is running
 int totalEntries; //total number of recorded entries
 unsigned long lastTime; //the time since the last record call
-unsigned long lastTImeHeat; // the time since the last heat cycle *****************************************************
-double lastTempDeviance; // temp error from last cycle to be used to determine slope of error. ***********************************
-double lastPWM; // last cycle's PWM output before making it an integer ***********************************************************
+unsigned long lastTimeHeat; // the time since the last heat cycle
+double lastTempDeviance; // temp error from last cycle to be used to determine slope of error.
+double lastPWM; // last cycle's PWM output before making it an integer
 String dataString = ""; // holds the String of one line to be written to the CSV file
+double internalTemp; //internal temperature of the box
 File sensorData; //pointer to the file on the SD
 
 //Constants
 const int POLLING_RATE = (int)((1/(double)400)*1000); //the polling rate, expressed in miliseconds (400Hz = 1/400ms)
-const int HEAT_CYCLE = 15000; //sets a heat cycle time of 15 sec (in millisec) ***************************************************
+const int HEAT_CYCLE = 15000; //sets a heat cycle time of 15 sec (in millisec)
 const int DESIRED_TEMP = 15; //desired temperature of the box, what the pwm of the heater works toward, in celsius
 const String CSV_FILENAME = "DATA.CSV"; //the file name of the CSV file on the SD
-const double P_GAIN = 1; // proportinal gain for the heater control *********************************************
-const double D_GAIN = -0.4; //derivative gain for the heater control *************************************
-const double TOUCH_TEMP_LIMIT = 50; // Touch temp limit on box **********************************
-const double EXT_TEMP_LIMIT = 45 // Touch temp limit for box using ext temp probe ***************************************
+const double P_GAIN = 1; // proportinal gain for the heater control
+const double D_GAIN = -0.4; //derivative gain for the heater control
+const double TOUCH_TEMP_LIMIT = 50; // Touch temp limit on box
+const double EXT_TEMP_LIMIT = 45; // Touch temp limit for box using ext temp probe
 
 
 //class Defintions
@@ -83,41 +84,34 @@ void setup()
 
 void initialization()
 {
+  //Initialize the serial bus, needed to write back to console
+  Serial.begin(115200);
+  while (!Serial);     // pause until serial console opens
   Serial.println("Initializing software...");
+  
   isRecording = false;
   totalEntries = 0;
   lastTime = millis();
-
-  //Initialize the serial bus
-  Serial.begin(115200);
+  internalTemp = 0;
   
   initSensors();  
   initCSV();
   initHeater();
-  // Changes made here, moved software to loop()   ****************************************************************
+  Serial.println("Software Initialized. Beginning recording...");
 }
   
-/*  while (!isRecording)
-  {
-    checkForGoSignal();
-    Serial.println("waiting for go signal to start recording");
-  }
-  
-  Serial.println("Software Initialized. Beginning recording...");
-  record();
-} */
-
-void record() //Changes made ***************************************************************************
+void record()
 {
    DataBlock currentReadings = pollSensors();
    writeToCSV(currentReadings);
-      //printToConsole(currentReadings);
+   //printToConsole(currentReadings);
+   internalTemp = currentReadings.intTemp;
    totalEntries++; 
 }
 
-void checkForGoSignal() //Changes made**********************************************************
+void checkForWeightOnWheels()
 {
-  if (totalEntries < 100) //fill in once we know how to get the plane's wheels up signal
+  if (totalEntries < 100) //TODO: fill in once we know how to get the plane's wheels up signal
   {
     isRecording = true;
   }
@@ -126,19 +120,6 @@ void checkForGoSignal() //Changes made******************************************
     isRecording = false;
   }
 }
-
-/*void checkForStopSignal()
-{
-  if(totalEntries > 100) //for testing, limit recording entries to 100
-  {
-    isRecording = false;
-  }
-  
-  if (0) //fill in once we know what the wheels down singal is going to look like to our software
-  {
-    isRecording = false;
-  }
-}  */
 
 DataBlock pollSensors()
 {
@@ -266,7 +247,7 @@ void initCSV()
   Serial.print("Initializing SD card...");
   pinMode(SD_CS, OUTPUT);
 
-  // see if the card is present and can be initialized: We need to try to initlialize again if not successful ********************************
+  // see if the card is present and can be initialized: We need to try to initlialize again if not successful
   if (!SD.begin(SD_CS)) 
   {
     Serial.println("\nCard failed, or not present");
@@ -288,7 +269,7 @@ void initCSV()
   sensorData = SD.open(CSV_FILENAME, FILE_WRITE);
   if (sensorData)
   {
-    sensorData.println("External Temperature (°C), Barometric Pressure (Pa), Acceleration X, Acceleration Y, Acceleration Z");
+    sensorData.println("External Temperature (C), Barometric Pressure (Pa), Acceleration X, Acceleration Y, Acceleration Z");
     sensorData.close();
   }
   else
@@ -318,9 +299,6 @@ void initSensors()
   }
 
   //Accelerometer
-  #ifndef ESP8266
-    while (!Serial);     // will pause Zero, Leonardo, etc until serial console opens
-  #endif
   if (! lis.begin(0x18)) // change this to 0x19 for alternative i2c address
   {   
     Serial.println("\nCouldn't start accelerometer");
@@ -358,7 +336,7 @@ void updateHeater(double intTemp) // Changes made to implement a PD controller  
   lastPWM = PWM; // saving this PWM value for next cycle
   lastTempDeviance = tempDeviance; // saving this temp error for next cycle
   
-  int intPWM = (int)(PWM + 0.5) // converting PWM to an integer and adding 0.5 so it will round the value and not truncate
+  int intPWM = (int)(PWM + 0.5); // converting PWM to an integer and adding 0.5 so it will round the value and not truncate
 
   if (intPWM > 255)
   {
@@ -379,22 +357,6 @@ void updateHeater(double intTemp) // Changes made to implement a PD controller  
   */
  
   analogWrite(HEATER_PIN, intPWM); 
-
-
-  
-/*  char tempSteps = (char) tempDeviance; //truncate deviance to signed integer value of degree difference, this is the number of temp steps off from desired
-  if (tempSteps > 5) //make sure tempSteps is max of 5 and min of -5
-  {
-    tempSteps = 5;
-  }
-  if (tempSteps < -5)
-  {
-    tempSteps = -5;
-  }
-  int dutyCyclePercentage = 50 + (10 * tempSteps); //convert tempSteps to a percentage value
-  dutyCycle = (char)(dutyCyclePercentage * 2.55); //scale percentage duty cycle to between 0 and 255  */
-  
-
 }
 
 
@@ -406,25 +368,25 @@ void finish()
 }
 
 
-void loop() // Changes made *************************************************************************
+void loop()
 { 
    unsigned long currTime = millis();
    if (currTime >= lastTime + POLLING_RATE) // if possible we would like to loop at 400Hz, or every 2.5msec
     {
-       checkForGoSignal(); //looking for the weight on wheels switch
+       checkForWeightOnWheels(); //looking for the weight on wheels switch
        if (isRecording) // if weight on wheel is switch is false, then isRecording will be true and we want to record
-         {
-           record();
-         }
-       else if (totalEntries > 50)
-         {
-            finish();
-         }
-       if (currTime >= lastTimeHeat + HEAT_CYCLE) // calling the heater control loop for the time set in HEAT_CYCLE (15 sec)
-        {
-          updateHeater(currentReadings.intTemp);
+       {
+        record();
+       }
+       else if (totalEntries > 1000)
+       {
+        finish();
+       }
+       if (currTime >= lastTimeHeat + HEAT_CYCLE); // calling the heater control loop for the time set in HEAT_CYCLE (15 sec)
+       {
+          updateHeater(internalTemp);
           lastTimeHeat = currTime;
-        }
+       }
        lastTime = currTime;
     }  
 }

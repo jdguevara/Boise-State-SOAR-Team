@@ -4,9 +4,13 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
 #include <SD.h>
+//#include <SdFat.h>
 #include <Adafruit_MAX31865.h>
 
 //Declarations for imported hardware firmware classes
+
+//Weight on Wheels Sensor
+#define WEIGHT_ON_WHEELS 13 //pin for the Weight on Wheels
 
 //Temp Sensor
 #define MAX31865_CS 6//7 // CS pin
@@ -30,13 +34,16 @@ char dutyCycle;
 
 //Software Instance variables
 bool isRecording; //whether or not the recorder is running
-int totalEntries; //total number of recorded entries
+int totalEntries = 0; //total number of recorded entries
 unsigned long lastTime; //the time since the last record call
 unsigned long lastTimeHeat; // the time since the last heat cycle
 double lastTempDeviance; // temp error from last cycle to be used to determine slope of error.
 double lastPWM; // last cycle's PWM output before making it an integer
 String dataString = ""; // holds the String of one line to be written to the CSV file
 double internalTemp; //internal temperature of the box
+double lastIntTemp = 0; // last integer temperature
+double staticTempCounter = 0; // temperature counter, increments if there is a sensor fails
+double extTemp = 0;
 File sensorData; //pointer to the file on the SD
 
 //Constants
@@ -103,15 +110,17 @@ void initialization()
 void record()
 {
    DataBlock currentReadings = pollSensors();
+   
    writeToCSV(currentReadings);
    //printToConsole(currentReadings);
    internalTemp = currentReadings.intTemp;
    totalEntries++; 
 }
 
-void checkForWeightOnWheels()
+void checkForWeightOnWheels() // pin 13 - when there is weight on wheels = 1, lift-off = 0
 {
-  if (totalEntries < 100) //TODO: fill in once we know how to get the plane's wheels up signal
+ // if (totalEntries < 100) //TODO: fill in once we know how to get the plane's wheels up signal
+  if (!digitalRead(WEIGHT_ON_WHEELS))
   {
     isRecording = true;
   }
@@ -127,12 +136,14 @@ DataBlock pollSensors()
   
   double currExtTemp = readExtTemp();
   currDataBlock.extTemp = currExtTemp;
+  extTemp = currExtTemp;
   
   double currPres = readPressure();
   currDataBlock.pressure = currPres;
   
   double currIntTemp = readIntTemp();
   currDataBlock.intTemp = currIntTemp;
+  failTempSensor(currDataBlock);
   
   double currAccelX = readAccelX();
   currDataBlock.accelX = currAccelX;
@@ -239,6 +250,7 @@ void writeToCSV(DataBlock dataToWrite)
   sensorData = SD.open(CSV_FILENAME, FILE_WRITE);
   sensorData.println(dataString);
   sensorData.close();
+  //Serial.println(totalEntries+" Entries Written");
   Serial.println("Datablock written to CSV");
 }
 
@@ -316,6 +328,19 @@ void initHeater()
   Serial.println("Done.");
 }
 
+void failTempSensor(DataBlock dataToCheck)
+{
+  if (dataToCheck.intTemp == lastIntTemp)
+  {
+      staticTempCounter++;
+  }
+  else
+  {
+      staticTempCounter = 0;
+      lastIntTemp = dataToCheck.intTemp;  
+}
+
+}
 /**
  * manages the PWM of the heater pad. It works as follows:
  * -look at the current internal temperature of the box
@@ -347,14 +372,14 @@ void updateHeater(double intTemp) // Changes made to implement a PD controller  
     intPWM = 0;
   }
 
-  /* to make sure the box does not go too hot, we will impelment a back up temperature check. The logic should check the tempa and also make sure it isn't jsut bad data  
-   *  from the backup sensor by using the external sensor also
+  // * to make sure the box does not go too hot, we will impelment a back up temperature check. The logic should check the tempa and also make sure it isn't jsut bad data  
+  // *  from the backup sensor by using the external sensor also
     
-     if ((backupTempSensor > TOUCH_TEMP_LIMIT) and (currentReadings.extTemp > EXT_TEMP_LIMIT))
+     if ((staticTempCounter >= 10000) and (extTemp > EXT_TEMP_LIMIT))
      {
        intPWM = 0;
      }  
-  */
+
  
   analogWrite(HEATER_PIN, intPWM); 
 }
@@ -362,6 +387,7 @@ void updateHeater(double intTemp) // Changes made to implement a PD controller  
 
 void finish()
 {
+  Serial.print("Finished. Hit 1000 Entries...");
   sensorData.close();
   //TODO: sever connections to sensors nicely if needed
   //TODO: power down, or wait for signal to start recording again (don't know what wer are supposed to do here)
@@ -378,9 +404,16 @@ void loop()
        {
         record();
        }
-       else if (totalEntries > 1000)
+       else if (!isRecording)
+       {
+        Serial.print("Recording Stopped ...");
+        exit;
+        
+       }
+       else if (totalEntries > 100)
        {
         finish();
+        
        }
        if (currTime >= lastTimeHeat + HEAT_CYCLE); // calling the heater control loop for the time set in HEAT_CYCLE (15 sec)
        {

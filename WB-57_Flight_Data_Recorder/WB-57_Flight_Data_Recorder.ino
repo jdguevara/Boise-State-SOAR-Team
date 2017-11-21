@@ -96,7 +96,7 @@ void initialization()
   while (!Serial);     // pause until serial console opens
   Serial.println("Initializing software...");
   
-  isRecording = false;
+  isRecording = true;
   totalEntries = 0;
   lastTime = millis();
   internalTemp = 0;
@@ -117,7 +117,7 @@ void record()
    totalEntries++; 
 }
 
-void checkForWeightOnWheels() // pin 13 - when there is weight on wheels = 1, lift-off = 0
+/*void checkForWeightOnWheels() // pin 13 - when there is weight on wheels = 1, lift-off = 0
 {
  // if (totalEntries < 100) //TODO: fill in once we know how to get the plane's wheels up signal
   if (!digitalRead(WEIGHT_ON_WHEELS))
@@ -128,7 +128,7 @@ void checkForWeightOnWheels() // pin 13 - when there is weight on wheels = 1, li
   {
     isRecording = false;
   }
-}
+} */
 
 DataBlock pollSensors()
 {
@@ -250,7 +250,9 @@ void writeToCSV(DataBlock dataToWrite)
   sensorData = SD.open(CSV_FILENAME, FILE_WRITE);
   sensorData.println(dataString);
   sensorData.close();
-  //Serial.println(totalEntries+" Entries Written");
+  String tempString = "";
+  tempString = totalEntries;
+  Serial.println(tempString);
   Serial.println("Datablock written to CSV");
 }
 
@@ -387,8 +389,9 @@ void updateHeater(double intTemp) // Changes made to implement a PD controller  
 
 void finish()
 {
-  Serial.print("Finished. Hit 1000 Entries...");
+  Serial.print("Finished.");
   sensorData.close();
+  
   //TODO: sever connections to sensors nicely if needed
   //TODO: power down, or wait for signal to start recording again (don't know what wer are supposed to do here)
 }
@@ -399,22 +402,18 @@ void loop()
    unsigned long currTime = millis();
    if (currTime >= lastTime + POLLING_RATE) // if possible we would like to loop at 400Hz, or every 2.5msec
     {
-       checkForWeightOnWheels(); //looking for the weight on wheels switch
+ //     checkForWeightOnWheels(); //looking for the weight on wheels switch
        if (isRecording) // if weight on wheel is switch is false, then isRecording will be true and we want to record
        {
-        record();
+           record();
        }
-       else if (!isRecording)
+       else
        {
-        Serial.print("Recording Stopped ...");
-        exit;
-        
+           Serial.print("Recording Stopped ...");
+           finish();
        }
-       else if (totalEntries > 100)
-       {
-        finish();
-        
-       }
+    }
+         
        if (currTime >= lastTimeHeat + HEAT_CYCLE); // calling the heater control loop for the time set in HEAT_CYCLE (15 sec)
        {
           updateHeater(internalTemp);
@@ -422,5 +421,5 @@ void loop()
        }
        lastTime = currTime;
     }  
-}
+
 

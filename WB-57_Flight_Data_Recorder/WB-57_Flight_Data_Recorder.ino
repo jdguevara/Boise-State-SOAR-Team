@@ -45,6 +45,7 @@ double lastIntTemp = 0; // last integer temperature
 double staticTempCounter = 0; // temperature counter, increments if there is a sensor fails
 double extTemp = 0;
 File sensorData; //pointer to the file on the SD
+bool finished = false;
 
 //Constants
 const int POLLING_RATE = (int)((1/(double)400)*1000); //the polling rate, expressed in miliseconds (400Hz = 1/400ms)
@@ -96,7 +97,7 @@ void initialization()
   while (!Serial);     // pause until serial console opens
   Serial.println("Initializing software...");
   
-  isRecording = true;
+  isRecording = false;
   totalEntries = 0;
   lastTime = millis();
   internalTemp = 0;
@@ -117,8 +118,9 @@ void record()
    totalEntries++; 
 }
 
-/*void checkForWeightOnWheels() // pin 13 - when there is weight on wheels = 1, lift-off = 0
+void checkForWeightOnWheels() // pin 13 - when there is weight on wheels = 1, lift-off = 0
 {
+// Serial.print("Entered checkForWeightOnWheels function ");
  // if (totalEntries < 100) //TODO: fill in once we know how to get the plane's wheels up signal
   if (!digitalRead(WEIGHT_ON_WHEELS))
   {
@@ -128,7 +130,7 @@ void record()
   {
     isRecording = false;
   }
-} */
+} 
 
 DataBlock pollSensors()
 {
@@ -391,6 +393,7 @@ void finish()
 {
   Serial.print("Finished.");
   sensorData.close();
+  finished = true;
   
   //TODO: sever connections to sensors nicely if needed
   //TODO: power down, or wait for signal to start recording again (don't know what wer are supposed to do here)
@@ -402,18 +405,23 @@ void loop()
    unsigned long currTime = millis();
    if (currTime >= lastTime + POLLING_RATE) // if possible we would like to loop at 400Hz, or every 2.5msec
     {
- //     checkForWeightOnWheels(); //looking for the weight on wheels switch
-       if (isRecording) // if weight on wheel is switch is false, then isRecording will be true and we want to record
+   //  while( !isRecording){
+   //   checkForWeightOnWheels();
+   //  }
+      
+      checkForWeightOnWheels(); //looking for the weight on wheels switch
+      
+       if (isRecording && !finished) // if weight on wheel is switch is false, then isRecording will be true and we want to record
        {
            record();
        }
-       else
+       else if (!isRecording && totalEntries > 100) //this stops the recording only if the plane has been in the air (gathered data)
+                                                    //and no has weight on wheels
        {
            Serial.print("Recording Stopped ...");
            finish();
        }
-    }
-         
+             
        if (currTime >= lastTimeHeat + HEAT_CYCLE); // calling the heater control loop for the time set in HEAT_CYCLE (15 sec)
        {
           updateHeater(internalTemp);
@@ -421,5 +429,5 @@ void loop()
        }
        lastTime = currTime;
     }  
-
+}
 

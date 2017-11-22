@@ -138,7 +138,7 @@ DataBlock pollSensors()
   
   double currExtTemp = readExtTemp();
   currDataBlock.extTemp = currExtTemp;
-  extTemp = currExtTemp;
+  //extTemp = currExtTemp;
   
   double currPres = readPressure();
   currDataBlock.pressure = currPres;
@@ -146,6 +146,7 @@ DataBlock pollSensors()
   double currIntTemp = readIntTemp();
   currDataBlock.intTemp = currIntTemp;
   failTempSensor(currDataBlock);
+
   
   double currAccelX = readAccelX();
   currDataBlock.accelX = currAccelX;
@@ -254,8 +255,9 @@ void writeToCSV(DataBlock dataToWrite)
   sensorData.close();
   String tempString = "";
   tempString = totalEntries;
-  Serial.println(tempString);
-  Serial.println("Datablock written to CSV");
+  Serial.print("Row ");
+  Serial.print(tempString);
+  Serial.println(" - Datablock written to CSV");
 }
 
 void initCSV()
@@ -333,6 +335,7 @@ void initHeater()
 }
 
 void failTempSensor(DataBlock dataToCheck)
+
 {
   if (dataToCheck.intTemp == lastIntTemp)
   {
@@ -366,7 +369,7 @@ void updateHeater(double intTemp) // Changes made to implement a PD controller  
   lastTempDeviance = tempDeviance; // saving this temp error for next cycle
   
   int intPWM = (int)(PWM + 0.5); // converting PWM to an integer and adding 0.5 so it will round the value and not truncate
-
+  
   if (intPWM > 255)
   {
     intPWM = 255;
@@ -376,6 +379,8 @@ void updateHeater(double intTemp) // Changes made to implement a PD controller  
     intPWM = 0;
   }
 
+  
+ 
   // * to make sure the box does not go too hot, we will impelment a back up temperature check. The logic should check the tempa and also make sure it isn't jsut bad data  
   // *  from the backup sensor by using the external sensor also
     
@@ -383,7 +388,8 @@ void updateHeater(double intTemp) // Changes made to implement a PD controller  
      {
        intPWM = 0;
      }  
-
+//  Serial.print("intPWM is ");
+//  Serial.println(intPWM);
  
   analogWrite(HEATER_PIN, intPWM); 
 }

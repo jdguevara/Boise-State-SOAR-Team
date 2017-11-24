@@ -117,7 +117,7 @@ void record()
    writeToCSV(currentReadings);
    //printToConsole(currentReadings);
    internalTemp = currentReadings.intTemp;
-   Serial.println(totalEntries);
+   //Serial.println(totalEntries);
    totalEntries++;
 }
 
@@ -253,16 +253,16 @@ void writeToCSV(DataBlock dataToWrite)
   //Serial.println("Datablock " + dataString);
 
   //write the string to the csv
-  //sensorData = SD.open(CSV_FILENAME, FILE_WRITE);
   /*
-  buf[totalEntries] = dataString.getBytes(buf,512);
-  dataString.getBytes(buf, 512);
-  if(totalEntries == 512){sensorData.write(buf,512); sensorData.flush();}
+   * Old code
+  sensorData = SD.open(CSV_FILENAME, FILE_WRITE);
+  sensorData.write(dataString);
   */
-  /*
-  sensorData.println(dataString);
-  sensorData.flush();
-  */
+  
+  sensorData.println(dataString); // Or use write(dataString)?
+  // flush every 50 writes
+  if(totalEntries % 50 == 0){sensorData.flush();}
+    
   String tempString = "";
   tempString = totalEntries;
   Serial.print("Row ");
@@ -287,7 +287,7 @@ void initCSV()
 
   Serial.println("Done.");
 
-  Serial.print("Initializing CSV...");
+  //Serial.print("Initializing CSV...");
   /*
   if(SD.exists(CSV_FILENAME))
   {
@@ -296,7 +296,7 @@ void initCSV()
   }
   */
   sensorData = SD.open(CSV_FILENAME, O_CREAT | O_WRITE);
-  Serial.println("FILE OPEN, DO NOT REMOVE CARD");
+  //Serial.println("FILE OPEN, DO NOT REMOVE CARD");
   if (sensorData)
   {
     sensorData.println("External Temperature (C), Barometric Pressure (Pa), Acceleration X, Acceleration Y, Acceleration Z");
@@ -306,7 +306,7 @@ void initCSV()
   {
     Serial.println("\nError writing to file!");
   }
-  Serial.println("Done.");
+  //Serial.println("Done.");
 
   //Serial.println("Card initialized...");
 }
@@ -433,7 +433,7 @@ void loop()
 
        if (/*isRecording && */!finished) // if weight on wheel is switch is false, then isRecording will be true and we want to record
        {
-           Serial.println("recording");
+           //Serial.println("recording");
            record();
        }
        /*else*/ 

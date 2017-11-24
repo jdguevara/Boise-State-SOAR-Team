@@ -3,10 +3,14 @@
 #include <SPI.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
-#include <SD.h>
+//#include <SD.h>
+#include <SdFat.h>
 #include <Adafruit_MAX31865.h>
 
 //Declarations for imported hardware firmware classes
+
+//Weight on Wheels Sensor
+#define WEIGHT_ON_WHEELS 13 //pin for the Weight on Wheels
 
 //Temp Sensor
 #define MAX31865_CS 6//7 // CS pin
@@ -30,14 +34,22 @@ char dutyCycle;
 
 //Software Instance variables
 bool isRecording; //whether or not the recorder is running
-int totalEntries; //total number of recorded entries
+int totalEntries = 0; //total number of recorded entries
 unsigned long lastTime; //the time since the last record call
 unsigned long lastTimeHeat; // the time since the last heat cycle
 double lastTempDeviance; // temp error from last cycle to be used to determine slope of error.
 double lastPWM; // last cycle's PWM output before making it an integer
 String dataString = ""; // holds the String of one line to be written to the CSV file
 double internalTemp; //internal temperature of the box
+double lastIntTemp = 0; // last integer temperature
+double staticTempCounter = 0; // temperature counter, increments if there is a sensor fails
+double extTemp = 0;
+SdFat SD;
 File sensorData; //pointer to the file on the SD
+byte buf[512]; // A buffer to be written to the SD
+int index_buf = 0; // Last written data point
+byte data[6];
+bool finished = false;
 
 //Constants
 const int POLLING_RATE = (int)((1/(double)400)*1000); //the polling rate, expressed in miliseconds (400Hz = 1/400ms)
@@ -54,6 +66,7 @@ const double EXT_TEMP_LIMIT = 45; // Touch temp limit for box using ext temp pro
 /**
  * DataBlock class to represent a collection of all current readings from the sensors
  */
+
 class DataBlock
 {
   public:
@@ -63,6 +76,7 @@ class DataBlock
     double accelX;
     double accelY;
     double accelZ;
+    byte data[5];
     DataBlock();
 };
 
@@ -77,7 +91,7 @@ DataBlock::DataBlock(void)
   accelZ = 0.0;
 }
 
-void setup() 
+void setup()
 {
   initialization();
 }
@@ -88,58 +102,65 @@ void initialization()
   Serial.begin(115200);
   while (!Serial);     // pause until serial console opens
   Serial.println("Initializing software...");
-  
-  isRecording = false;
+
+  isRecording = true;
   totalEntries = 0;
   lastTime = millis();
   internalTemp = 0;
-  
-  initSensors();  
+
+  initSensors();
   initCSV();
   initHeater();
   Serial.println("Software Initialized. Beginning recording...");
 }
-  
+
 void record()
 {
    DataBlock currentReadings = pollSensors();
+
    writeToCSV(currentReadings);
    //printToConsole(currentReadings);
    internalTemp = currentReadings.intTemp;
-   totalEntries++; 
+   //Serial.println(totalEntries);
+   totalEntries++;
 }
 
-void checkForWeightOnWheels()
+void checkForWeightOnWheels() // pin 13 - when there is weight on wheels = 1, lift-off = 0
 {
-  if (totalEntries < 100) //TODO: fill in once we know how to get the plane's wheels up signal
+// Serial.print("Entered checkForWeightOnWheels function ");
+ // if (totalEntries < 100) //TODO: fill in once we know how to get the plane's wheels up signal
+  if (!digitalRead(WEIGHT_ON_WHEELS))
   {
     isRecording = true;
   }
   else
   {
-    isRecording = false;
+    //isRecording = false;
   }
 }
 
 DataBlock pollSensors()
 {
   DataBlock currDataBlock;
-  
+
   double currExtTemp = readExtTemp();
   currDataBlock.extTemp = currExtTemp;
-  
+  //extTemp = currExtTemp;
+
   double currPres = readPressure();
   currDataBlock.pressure = currPres;
-  
+
   double currIntTemp = readIntTemp();
   currDataBlock.intTemp = currIntTemp;
-  
+  failTempSensor(currDataBlock);
+
+
   double currAccelX = readAccelX();
   currDataBlock.accelX = currAccelX;
-  
+
   double currAccelY = readAccelY();
   currDataBlock.accelY = currAccelY;
-  
+
   double currAccelZ = readAccelZ();
   currDataBlock.accelZ = currAccelZ;
 
@@ -166,7 +187,7 @@ double readPressure()
 
 double readAccelX()
 {
-  sensors_event_t event; 
+  sensors_event_t event;
   lis.getEvent(&event);
   double currAccelX = event.acceleration.x;
   return currAccelX;
@@ -174,7 +195,7 @@ double readAccelX()
 
 double readAccelY()
 {
-  sensors_event_t event; 
+  sensors_event_t event;
   lis.getEvent(&event);
   double currAccelY = event.acceleration.y;
   return currAccelY;
@@ -182,7 +203,7 @@ double readAccelY()
 
 double readAccelZ()
 {
-  sensors_event_t event; 
+  sensors_event_t event;
   lis.getEvent(&event);
   double currAccelZ = event.acceleration.z;
   return currAccelZ;
@@ -219,8 +240,9 @@ void printToConsole(DataBlock dataToWrite)
 }
 
 void writeToCSV(DataBlock dataToWrite)
-{  
-  // build the data string
+{
+  // build the data string *Not Needed*
+  /*
   dataString = "";
   dataString.concat(dataToWrite.extTemp);
   dataString.concat(", ");
@@ -233,59 +255,104 @@ void writeToCSV(DataBlock dataToWrite)
   dataString.concat(dataToWrite.accelZ);
   dataString.concat(", ");
   dataString.concat(millis());
-  //Serial.println("Datablock " + dataString);
-  
-  //write the string to the csv
-  sensorData = SD.open(CSV_FILENAME, FILE_WRITE);
-  sensorData.println(dataString);
-  sensorData.close();
-  Serial.println("Datablock written to CSV");
+  */
+
+  /*
+   * Write data in bytes to the file. Theoretically this should optimize performance
+   * and require fewer processor operations.
+   * 
+   * It would be better if the sensor readings were not passed to this function as a
+   * DataBlock object. Using a struct would reduce our overhead. 
+   * 
+   * Furthermore, if we used pointers with the struct instead of creating a new DataBlock object 
+   * every time to pass to this function we would save valuable time. 
+  */
+
+  //Ideally this would appear in a struct
+  //Cast the sensor values as bytes so that they write to the SD faster
+  data[0] = (byte)dataToWrite.extTemp;
+  data[1] = (byte)dataToWrite.pressure;
+  data[2] = (byte)dataToWrite.accelX;
+  data[3] = (byte)dataToWrite.accelY;
+  data[4] = (byte)dataToWrite.accelZ;
+
+  //Add the data to buf until it is full then write
+  index_buf++;  
+  for(int i = 0; index_buf < 512 && i < 5; i++){
+    buf[index_buf] = data[i];
+    
+    /*
+     * Write buf to the file once it is full
+     * NOTE: this buffer size may be so large that it takes to long to
+     * write it at one time. Try 128, 32, etc to see if smaller is better
+    */
+    if(index_buf >= 512){sensorData.write(buf, 512);}  
+    index_buf++;
+  }
+
+  /*
+   *Alternative method that does not require translation from bytes to csv.
+   * When sensorData is called the data is not written immediately written to the file. 
+   * 
+   * sensorData.flush() is called once every 50 data entries to limit the number of times  
+   * flush is called. By decreasing the frequency of the flushes we increase the speed of 
+   * recording.
+   
+    sensorData.println(dataString);  
+    if(totalEntries % 50 == 0){sensorData.flush();}
+  */
+
+  //Below just slows the code down... don't know what it was for anyway.
+  /*
+  String tempString = "";
+  tempString = totalEntries;
+  Serial.print("Row ");
+  Serial.print(tempString);
+  Serial.println(" - Datablock written to CSV");
+  */
 }
 
 void initCSV()
 {
-  Serial.print("Initializing SD card...");
+  //Serial.print("Initializing SD card...");
   pinMode(SD_CS, OUTPUT);
 
   // see if the card is present and can be initialized: We need to try to initlialize again if not successful
-  if (!SD.begin(SD_CS)) 
+  if (!SD.begin(SD_CS))
   {
     Serial.println("\nCard failed, or not present");
-    while (!SD.begin(SD_CS)) 
+    while (!SD.begin(SD_CS))
     {
       pinMode(SD_CS, OUTPUT);
-      break; //Dont go into endless loop; run the PWM
     }
   }
-   
+
   Serial.println("Done.");
 
-  Serial.print("Initializing CSV...");
-  if(SD.exists(CSV_FILENAME))
-  {
-    Serial.print("Data.csv exists, deleting old version...");
-    SD.remove(CSV_FILENAME);
-  }
-
-  sensorData = SD.open(CSV_FILENAME, FILE_WRITE);
+  //Serial.print("Initializing CSV...");
+  
+  sensorData = SD.open(CSV_FILENAME, O_CREAT | O_WRITE);
+  //Serial.println("FILE OPEN, DO NOT REMOVE CARD");
   if (sensorData)
   {
     sensorData.println("External Temperature (C), Barometric Pressure (Pa), Acceleration X, Acceleration Y, Acceleration Z");
-    sensorData.close();
+    sensorData.flush();
   }
   else
   {
     Serial.println("\nError writing to file!");
   }
-  Serial.println("Done.");
+  //Serial.println("Done.");
+
+  //Serial.println("Card initialized...");
 }
 
 void initSensors()
 {
   Serial.print("Initializing Sensors...");
-  
+
   //initialize the sensors on the serial bus
-  
+
   //Temp Sensor
   if (!max.begin(MAX31865_3WIRE)) // set to 2WIRE or 4WIRE as necessary
   {
@@ -293,15 +360,15 @@ void initSensors()
   }
 
   //Pressure and int temp sensor
-  if (!bme.begin()) 
-  {  
+  if (!bme.begin())
+  {
     Serial.println("\nCould not find a valid BMP280 sensor, check wiring!");
-    while (1);
+    //while (1);
   }
 
   //Accelerometer
   if (! lis.begin(0x18)) // change this to 0x19 for alternative i2c address
-  {   
+  {
     Serial.println("\nCouldn't start accelerometer");
   }
   lis.setRange(LIS3DH_RANGE_4_G);   // 2, 4, 8 or 16 G!
@@ -317,6 +384,20 @@ void initHeater()
   Serial.println("Done.");
 }
 
+void failTempSensor(DataBlock dataToCheck)
+
+{
+  if (dataToCheck.intTemp == lastIntTemp)
+  {
+      staticTempCounter++;
+  }
+  else
+  {
+      staticTempCounter = 0;
+      lastIntTemp = dataToCheck.intTemp;
+}
+
+}
 /**
  * manages the PWM of the heater pad. It works as follows:
  * -look at the current internal temperature of the box
@@ -333,10 +414,10 @@ void updateHeater(double intTemp) // Changes made to implement a PD controller  
   double tempDerivative = lastTempDeviance - tempDeviance; // calculates the slope or derivative of the error
   double deltaPWM = tempDeviance * P_GAIN + tempDerivative * D_GAIN; //calculates what change needs to be made to the PWM output
   double PWM = lastPWM + deltaPWM;
-  
+
   lastPWM = PWM; // saving this PWM value for next cycle
   lastTempDeviance = tempDeviance; // saving this temp error for next cycle
-  
+
   int intPWM = (int)(PWM + 0.5); // converting PWM to an integer and adding 0.5 so it will round the value and not truncate
 
   if (intPWM > 255)
@@ -348,47 +429,62 @@ void updateHeater(double intTemp) // Changes made to implement a PD controller  
     intPWM = 0;
   }
 
-  /* to make sure the box does not go too hot, we will impelment a back up temperature check. The logic should check the tempa and also make sure it isn't jsut bad data  
-   *  from the backup sensor by using the external sensor also
-    
-     if ((backupTempSensor > TOUCH_TEMP_LIMIT) and (currentReadings.extTemp > EXT_TEMP_LIMIT))
+
+
+  // * to make sure the box does not go too hot, we will impelment a back up temperature check. The logic should check the tempa and also make sure it isn't jsut bad data
+  // *  from the backup sensor by using the external sensor also
+
+     if ((staticTempCounter >= 10000) and (extTemp > EXT_TEMP_LIMIT))
      {
        intPWM = 0;
-     }  
-  */
- 
-  analogWrite(HEATER_PIN, intPWM); 
+     }
+//  Serial.print("intPWM is ");
+//  Serial.println(intPWM);
+
+  analogWrite(HEATER_PIN, intPWM);
 }
 
 
 void finish()
 {
+  Serial.print("Finished.");
   sensorData.close();
+  finished = true;
+
   //TODO: sever connections to sensors nicely if needed
   //TODO: power down, or wait for signal to start recording again (don't know what wer are supposed to do here)
 }
 
 
 void loop()
-{ 
+{
    unsigned long currTime = millis();
    if (currTime >= lastTime + POLLING_RATE) // if possible we would like to loop at 400Hz, or every 2.5msec
     {
-       //checkForWeightOnWheels(); //looking for the weight on wheels switch
-       if (isRecording) // if weight on wheel is switch is false, then isRecording will be true and we want to record
+   //  while( !isRecording){
+   //   checkForWeightOnWheels();
+   //  }
+
+      checkForWeightOnWheels(); //looking for the weight on wheels switch
+
+       if (/*isRecording && */!finished) // if weight on wheel is switch is false, then isRecording will be true and we want to record
        {
-        record();
+           //Serial.println("recording");
+           record();
        }
-       else if (/*totalEntries > 1000*/ false) //Run forever instead
+       /*else*/ 
+       if (/*!isRecording &&*/ totalEntries > 100) //this stops the recording only if the plane has been in the air (gathered data)
+                                                    //and no has weight on wheels
        {
-        finish();
+           Serial.print("Recording Stopped ...");
+           finish();
        }
+
        if (currTime >= lastTimeHeat + HEAT_CYCLE); // calling the heater control loop for the time set in HEAT_CYCLE (15 sec)
        {
           updateHeater(internalTemp);
           lastTimeHeat = currTime;
        }
        lastTime = currTime;
-    }  
+    }    
 }
-

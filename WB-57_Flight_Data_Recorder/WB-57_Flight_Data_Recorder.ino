@@ -3,8 +3,7 @@
 #include <SPI.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
-#include <SD.h>
-//#include <SdFat.h>
+#include <SdFat.h>
 #include <Adafruit_MAX31865.h>
 
 //Declarations for imported hardware firmware classes
@@ -49,12 +48,13 @@ float staticTempCounter = 0; // temperature counter, increments if there is a se
 float extTemp = 0;
 File sensorData; //pointer to the file on the SD
 bool finished = false;
+SdFat sd;
 
 //Constants
 const int POLLING_RATE = (int)((1/(float)400)*1000); //the polling rate, expressed in miliseconds (400Hz = 1/400ms)
 const int HEAT_CYCLE = 15000; //sets a heat cycle time of 15 sec (in millisec)
 const int DESIRED_TEMP = 15; //desired temperature of the box, what the pwm of the heater works toward, in celsius
-const String CSV_FILENAME = "DATA.CSV"; //the file name of the CSV file on the SD
+const char CSV_FILENAME[] = "DATA.CSV"; //the file name of the CSV file on the SD
 const float P_GAIN = 1; // proportinal gain for the heater control
 const float D_GAIN = -0.4; //derivative gain for the heater control
 const float TOUCH_TEMP_LIMIT = 50; // Touch temp limit on box
@@ -104,6 +104,7 @@ void initialization()
   totalEntries = 0;
   lastTime = millis();
   internalTemp = 0;
+  lastTimeHeat = 0;
   
   initSensors();  
   initCSV();
@@ -114,8 +115,7 @@ void initialization()
   
 void record()
 {
-   DataBlock currentReadings = pollSensors();
-   
+   DataBlock currentReadings = pollSensors();   
    writeToCSV(currentReadings);
    //printToConsole(currentReadings);
    internalTemp = currentReadings.intTemp;
@@ -140,9 +140,8 @@ DataBlock pollSensors()
 {
   DataBlock currDataBlock;
   
-  float currExtTemp = readExtTemp();
+  float currExtTemp = extTemp;
   currDataBlock.extTemp = currExtTemp;
-  //extTemp = currExtTemp;
   
   float currPres = readPressure();
   currDataBlock.pressure = currPres;
@@ -253,10 +252,11 @@ void writeToCSV(DataBlock dataToWrite)
   //Serial.println("Datablock " + dataString);
   
   //write the string to the csv
-  sensorData = SD.open(CSV_FILENAME, O_CREAT | O_WRITE | O_APPEND);
   sensorData.println(dataString);
-  sensorData.flush();
-  sensorData.close();
+  if (totalEntries % 100 == 0)
+  {
+    sensorData.flush();
+  }
   String tempString = "";
   tempString = totalEntries;
   Serial.print("Row ");
@@ -270,10 +270,10 @@ void initCSV()
   pinMode(SD_CS, OUTPUT);
 
   // see if the card is present and can be initialized: We need to try to initlialize again if not successful
-  if (!SD.begin(SD_CS)) 
+  if (!sd.begin(SD_CS)) 
   {
     Serial.println("\nCard failed, or not present");
-    while (!SD.begin(SD_CS)) 
+    while (!sd.begin(SD_CS)) 
     {
       pinMode(SD_CS, OUTPUT);
     }
@@ -282,17 +282,16 @@ void initCSV()
   Serial.println("Done.");
 
   Serial.print("Initializing CSV...");
-  if(SD.exists(CSV_FILENAME))
+  if(sd.exists(CSV_FILENAME))
   {
     Serial.print("Data.csv exists, deleting old version...");
-    SD.remove(CSV_FILENAME);
+    sd.remove(CSV_FILENAME);
   }
 
-  sensorData = SD.open(CSV_FILENAME, O_CREAT | O_WRITE);
+  sensorData = sd.open(CSV_FILENAME, O_CREAT | O_WRITE | O_APPEND);
   if (sensorData)
   {
     sensorData.println("External Temperature (C), Barometric Pressure (Pa), Acceleration X, Acceleration Y, Acceleration Z");
-    sensorData.close();
   }
   else
   {
@@ -312,6 +311,7 @@ void initSensors()
   {
     Serial.println("\n could not start temperature sensor");
   }
+  extTemp = readExtTemp();
 
   //Pressure and int temp sensor
   if (!bme.begin()) 
@@ -370,6 +370,9 @@ void activateFailLight()
  */
 void updateHeater(float intTemp) // Changes made to implement a PD controller  **********************************************************************
 {
+  Serial.print("Updating Heater PWM...");
+  extTemp = readExtTemp();
+  
   float desired = DESIRED_TEMP;
   float actual = intTemp;
   float tempDeviance = desired - actual; //difference between actual and desired temps, positive if temp needs to go up
@@ -389,9 +392,7 @@ void updateHeater(float intTemp) // Changes made to implement a PD controller  *
   else if (intPWM < 0)
   {
     intPWM = 0;
-  }
-
-  
+  }  
  
   // * to make sure the box does not go too hot, we will impelment a back up temperature check. The logic should check the tempa and also make sure it isn't jsut bad data  
   // *  from the backup sensor by using the external sensor also
@@ -404,13 +405,15 @@ void updateHeater(float intTemp) // Changes made to implement a PD controller  *
 //  Serial.print("intPWM is ");
 //  Serial.println(intPWM);
  
-  analogWrite(HEATER_PIN, intPWM); 
+  analogWrite(HEATER_PIN, intPWM);
+
+   Serial.println("Done.");
 }
 
 
 void finish()
 {
-  Serial.print("Finished.");
+  //Serial.print("Finished.");
   sensorData.close();
   finished = true;
   
@@ -424,24 +427,19 @@ void loop()
    unsigned long currTime = millis();
    if (currTime >= lastTime + POLLING_RATE) // if possible we would like to loop at 400Hz, or every 2.5msec
     {
-   //  while( !isRecording){
-   //   checkForWeightOnWheels();
-   //  }
-      
       checkForWeightOnWheels(); //looking for the weight on wheels switch
       
        if (isRecording && !finished) // if weight on wheel is switch is false, then isRecording will be true and we want to record
        {
            record();
        }
-       else if (!isRecording && totalEntries > 100) //this stops the recording only if the plane has been in the air (gathered data)
-                                                    //and no has weight on wheels
+       else if (!isRecording && totalEntries > 100) //this stops the recording only if the plane has been in the air (gathered data) and no has weight on wheels
        {
-           Serial.print("Recording Stopped ...");
+           Serial.println("Recording Stopped ...");
            finish();
        }
              
-       if (currTime >= lastTimeHeat + HEAT_CYCLE); // calling the heater control loop for the time set in HEAT_CYCLE (15 sec)
+       if (currTime >= lastTimeHeat + HEAT_CYCLE) // calling the heater control loop for the time set in HEAT_CYCLE (15 sec)
        {
           updateHeater(internalTemp);
           lastTimeHeat = currTime;

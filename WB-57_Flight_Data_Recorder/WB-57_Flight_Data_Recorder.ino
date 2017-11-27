@@ -18,11 +18,11 @@
 Adafruit_MAX31865 max = Adafruit_MAX31865(MAX31865_CS); // Use hardware SPI, just pass in the CS pin
 
 //Pressure Sensor
-#define BMP_CS 7//6
+#define BMP_CS 5//6
 Adafruit_BMP280 bme(BMP_CS); // hardware SPI
 
 // Accelerometer
-#define LIS3DH_CS 5
+#define LIS3DH_CS 7
 Adafruit_LIS3DH lis = Adafruit_LIS3DH(LIS3DH_CS);
 
 //SD Reader
@@ -253,7 +253,7 @@ void writeToCSV(DataBlock dataToWrite)
   //Serial.println("Datablock " + dataString);
   
   //write the string to the csv
-  sensorData = SD.open(CSV_FILENAME, FILE_WRITE);
+  sensorData = SD.open(CSV_FILENAME, O_CREAT | O_WRITE);
   sensorData.println(dataString);
   sensorData.close();
   String tempString = "";
@@ -287,7 +287,7 @@ void initCSV()
     SD.remove(CSV_FILENAME);
   }
 
-  sensorData = SD.open(CSV_FILENAME, FILE_WRITE);
+  sensorData = SD.open(CSV_FILENAME, O_CREAT | O_WRITE);
   if (sensorData)
   {
     sensorData.println("External Temperature (C), Barometric Pressure (Pa), Acceleration X, Acceleration Y, Acceleration Z");

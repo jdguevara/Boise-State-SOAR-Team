@@ -28,6 +28,9 @@ Adafruit_LIS3DH lis = Adafruit_LIS3DH(LIS3DH_CS);
 //SD Reader
 #define SD_CS SDCARD_SS_PIN
 
+//Fail Light
+#define FAIL_LIGHT 12
+
 //Internal Heater
 #define HEATER_PIN 4 //pin for the PWM output for the heater
 char dutyCycle;
@@ -105,6 +108,7 @@ void initialization()
   initSensors();  
   initCSV();
   initHeater();
+  initFailLight();
   Serial.println("Software Initialized. Beginning recording...");
 }
   
@@ -146,7 +150,6 @@ DataBlock pollSensors()
   double currIntTemp = readIntTemp();
   currDataBlock.intTemp = currIntTemp;
   failTempSensor(currDataBlock);
-
   
   double currAccelX = readAccelX();
   currDataBlock.accelX = currAccelX;
@@ -334,8 +337,12 @@ void initHeater()
   Serial.println("Done.");
 }
 
-void failTempSensor(DataBlock dataToCheck)
+void initFailLight()
+{
+  pinMode(FAIL_LIGHT, OUTPUT);
+}
 
+void failTempSensor(DataBlock dataToCheck)
 {
   if (dataToCheck.intTemp == lastIntTemp)
   {
@@ -345,8 +352,12 @@ void failTempSensor(DataBlock dataToCheck)
   {
       staticTempCounter = 0;
       lastIntTemp = dataToCheck.intTemp;  
+  }
 }
 
+void activateFailLight()
+{
+  digitalWrite(FAIL_LIGHT, HIGH);
 }
 /**
  * manages the PWM of the heater pad. It works as follows:
@@ -386,6 +397,7 @@ void updateHeater(double intTemp) // Changes made to implement a PD controller  
     
      if ((staticTempCounter >= 10000) and (extTemp > EXT_TEMP_LIMIT))
      {
+       activateFailLight();
        intPWM = 0;
      }  
 //  Serial.print("intPWM is ");

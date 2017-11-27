@@ -40,25 +40,25 @@ bool isRecording; //whether or not the recorder is running
 int totalEntries = 0; //total number of recorded entries
 unsigned long lastTime; //the time since the last record call
 unsigned long lastTimeHeat; // the time since the last heat cycle
-double lastTempDeviance; // temp error from last cycle to be used to determine slope of error.
-double lastPWM; // last cycle's PWM output before making it an integer
+float lastTempDeviance; // temp error from last cycle to be used to determine slope of error.
+float lastPWM; // last cycle's PWM output before making it an integer
 String dataString = ""; // holds the String of one line to be written to the CSV file
-double internalTemp; //internal temperature of the box
-double lastIntTemp = 0; // last integer temperature
-double staticTempCounter = 0; // temperature counter, increments if there is a sensor fails
-double extTemp = 0;
+float internalTemp; //internal temperature of the box
+float lastIntTemp = 0; // last integer temperature
+float staticTempCounter = 0; // temperature counter, increments if there is a sensor fails
+float extTemp = 0;
 File sensorData; //pointer to the file on the SD
 bool finished = false;
 
 //Constants
-const int POLLING_RATE = (int)((1/(double)400)*1000); //the polling rate, expressed in miliseconds (400Hz = 1/400ms)
+const int POLLING_RATE = (int)((1/(float)400)*1000); //the polling rate, expressed in miliseconds (400Hz = 1/400ms)
 const int HEAT_CYCLE = 15000; //sets a heat cycle time of 15 sec (in millisec)
 const int DESIRED_TEMP = 15; //desired temperature of the box, what the pwm of the heater works toward, in celsius
 const String CSV_FILENAME = "DATA.CSV"; //the file name of the CSV file on the SD
-const double P_GAIN = 1; // proportinal gain for the heater control
-const double D_GAIN = -0.4; //derivative gain for the heater control
-const double TOUCH_TEMP_LIMIT = 50; // Touch temp limit on box
-const double EXT_TEMP_LIMIT = 45; // Touch temp limit for box using ext temp probe
+const float P_GAIN = 1; // proportinal gain for the heater control
+const float D_GAIN = -0.4; //derivative gain for the heater control
+const float TOUCH_TEMP_LIMIT = 50; // Touch temp limit on box
+const float EXT_TEMP_LIMIT = 45; // Touch temp limit for box using ext temp probe
 
 
 //class Defintions
@@ -68,12 +68,12 @@ const double EXT_TEMP_LIMIT = 45; // Touch temp limit for box using ext temp pro
 class DataBlock
 {
   public:
-    double extTemp;
-    double pressure;
-    double intTemp;
-    double accelX;
-    double accelY;
-    double accelZ;
+    float extTemp;
+    float pressure;
+    float intTemp;
+    float accelX;
+    float accelY;
+    float accelZ;
     DataBlock();
 };
 
@@ -140,68 +140,68 @@ DataBlock pollSensors()
 {
   DataBlock currDataBlock;
   
-  double currExtTemp = readExtTemp();
+  float currExtTemp = readExtTemp();
   currDataBlock.extTemp = currExtTemp;
   //extTemp = currExtTemp;
   
-  double currPres = readPressure();
+  float currPres = readPressure();
   currDataBlock.pressure = currPres;
   
-  double currIntTemp = readIntTemp();
+  float currIntTemp = readIntTemp();
   currDataBlock.intTemp = currIntTemp;
   failTempSensor(currDataBlock);
   
-  double currAccelX = readAccelX();
+  float currAccelX = readAccelX();
   currDataBlock.accelX = currAccelX;
   
-  double currAccelY = readAccelY();
+  float currAccelY = readAccelY();
   currDataBlock.accelY = currAccelY;
   
-  double currAccelZ = readAccelZ();
+  float currAccelZ = readAccelZ();
   currDataBlock.accelZ = currAccelZ;
 
   return currDataBlock;
 }
 
-double readExtTemp()
+float readExtTemp()
 {
-  double currExtTemp = max.temperature(100, RREF);
+  float currExtTemp = max.temperature(100, RREF);
   return currExtTemp;
 }
 
-double readIntTemp()
+float readIntTemp()
 {
-  double currIntTemp = bme.readTemperature();
+  float currIntTemp = bme.readTemperature();
   return currIntTemp;
 }
 
-double readPressure()
+float readPressure()
 {
-  double currPres = bme.readPressure();
+  float currPres = bme.readPressure();
   return currPres;
 }
 
-double readAccelX()
+float readAccelX()
 {
   sensors_event_t event; 
   lis.getEvent(&event);
-  double currAccelX = event.acceleration.x;
+  float currAccelX = event.acceleration.x;
   return currAccelX;
 }
 
-double readAccelY()
+float readAccelY()
 {
   sensors_event_t event; 
   lis.getEvent(&event);
-  double currAccelY = event.acceleration.y;
+  float currAccelY = event.acceleration.y;
   return currAccelY;
 }
 
-double readAccelZ()
+float readAccelZ()
 {
   sensors_event_t event; 
   lis.getEvent(&event);
-  double currAccelZ = event.acceleration.z;
+  float currAccelZ = event.acceleration.z;
   return currAccelZ;
 }
 
@@ -253,8 +253,9 @@ void writeToCSV(DataBlock dataToWrite)
   //Serial.println("Datablock " + dataString);
   
   //write the string to the csv
-  sensorData = SD.open(CSV_FILENAME, O_CREAT | O_WRITE);
+  sensorData = SD.open(CSV_FILENAME, O_CREAT | O_WRITE | O_APPEND);
   sensorData.println(dataString);
+  sensorData.flush();
   sensorData.close();
   String tempString = "";
   tempString = totalEntries;
@@ -367,14 +368,14 @@ void activateFailLight()
  * -scale the units to a percentage scale for the duty cycle (i.e. 1 unit too cold = 60% duty cycle, 3 units too hot = 20% duty cycle, 5 too cold = 100% DC, 5 too hot = 0% DC)
  * -scale the duty cycle from 0 to 255 based on the percentage value (i.e. 0% = 0, 100% = 255)
  */
-void updateHeater(double intTemp) // Changes made to implement a PD controller  **********************************************************************
+void updateHeater(float intTemp) // Changes made to implement a PD controller  **********************************************************************
 {
-  double desired = DESIRED_TEMP;
-  double actual = intTemp;
-  double tempDeviance = desired - actual; //difference between actual and desired temps, positive if temp needs to go up
-  double tempDerivative = lastTempDeviance - tempDeviance; // calculates the slope or derivative of the error
-  double deltaPWM = tempDeviance * P_GAIN + tempDerivative * D_GAIN; //calculates what change needs to be made to the PWM output
-  double PWM = lastPWM + deltaPWM;
+  float desired = DESIRED_TEMP;
+  float actual = intTemp;
+  float tempDeviance = desired - actual; //difference between actual and desired temps, positive if temp needs to go up
+  float tempDerivative = lastTempDeviance - tempDeviance; // calculates the slope or derivative of the error
+  float deltaPWM = tempDeviance * P_GAIN + tempDerivative * D_GAIN; //calculates what change needs to be made to the PWM output
+  float PWM = lastPWM + deltaPWM;
   
   lastPWM = PWM; // saving this PWM value for next cycle
   lastTempDeviance = tempDeviance; // saving this temp error for next cycle

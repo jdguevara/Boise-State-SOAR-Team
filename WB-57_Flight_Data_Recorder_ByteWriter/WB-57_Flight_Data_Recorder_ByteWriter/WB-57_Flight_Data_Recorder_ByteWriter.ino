@@ -18,11 +18,11 @@
 Adafruit_MAX31865 max = Adafruit_MAX31865(MAX31865_CS); // Use hardware SPI, just pass in the CS pin
 
 //Pressure Sensor
-#define BMP_CS 7//6
+#define BMP_CS 5//6
 Adafruit_BMP280 bme(BMP_CS); // hardware SPI
 
 // Accelerometer
-#define LIS3DH_CS 5
+#define LIS3DH_CS 7
 Adafruit_LIS3DH lis = Adafruit_LIS3DH(LIS3DH_CS);
 
 //SD Reader
@@ -31,6 +31,9 @@ Adafruit_LIS3DH lis = Adafruit_LIS3DH(LIS3DH_CS);
 //Internal Heater
 #define HEATER_PIN 4 //pin for the PWM output for the heater
 char dutyCycle;
+
+//Fail Light LOW = all good, HIGH = fail
+#define FAIL_LIGHT 12
 
 //Software Instance variables
 bool isRecording; //whether or not the recorder is running
@@ -48,8 +51,9 @@ SdFat SD;
 File sensorData; //pointer to the file on the SD
 byte buf[512]; // A buffer to be written to the SD
 int index_buf = 0; // Last written data point
-byte data[6];
+byte dataFile[6];
 bool finished = false;
+
 
 //Constants
 const int POLLING_RATE = (int)((1/(double)400)*1000); //the polling rate, expressed in miliseconds (400Hz = 1/400ms)
@@ -76,9 +80,23 @@ class DataBlock
     double accelX;
     double accelY;
     double accelZ;
-    byte data[5];
+    byte dataFile[5];
     DataBlock();
 };
+
+/*
+struct DataBlock
+{
+    double extTemp;
+    double pressure;
+    double intTemp;
+    double accelX;
+    double accelY;
+    double accelZ;
+    //byte data[5];
+    //DataBlock();
+};
+*/
 
 //constructor for the DataBlock object
 DataBlock::DataBlock(void)
@@ -89,7 +107,10 @@ DataBlock::DataBlock(void)
   accelX = 0.0;
   accelY = 0.0;
   accelZ = 0.0;
-}
+};
+
+DataBlock data;
+
 
 void setup()
 {
@@ -99,9 +120,13 @@ void setup()
 void initialization()
 {
   //Initialize the serial bus, needed to write back to console
-  Serial.begin(115200);
+  Serial.begin(12000000);
+  //SPI.begin();
+  //SPI.beginTransaction(SPISettings(120000000, MSBFIRST, SPI_MODE0));
   while (!Serial);     // pause until serial console opens
   Serial.println("Initializing software...");
+  //pinMode(12, OUTPUT);
+  //digitalWrite(12, LOW);
 
   isRecording = true;
   totalEntries = 0;
@@ -117,10 +142,11 @@ void initialization()
 void record()
 {
    DataBlock currentReadings = pollSensors();
-
+   
+   //pollSensors();
    writeToCSV(currentReadings);
    //printToConsole(currentReadings);
-   internalTemp = currentReadings.intTemp;
+   internalTemp = data.intTemp;
    //Serial.println(totalEntries);
    totalEntries++;
 }
@@ -142,25 +168,27 @@ void checkForWeightOnWheels() // pin 13 - when there is weight on wheels = 1, li
 DataBlock pollSensors()
 {
   DataBlock currDataBlock;
-
-  double currExtTemp = readExtTemp();
+  //data->extTemp = readExtTemp();
+  double currExtTemp = readExtTemp();  
   currDataBlock.extTemp = currExtTemp;
-  //extTemp = currExtTemp;
-
+  //data->pressure = readPressure();
   double currPres = readPressure();
   currDataBlock.pressure = currPres;
 
+  //data->intTemp = readIntTemp();
   double currIntTemp = readIntTemp();
   currDataBlock.intTemp = currIntTemp;
-  failTempSensor(currDataBlock);
+  failTempSensor(data);
 
-
+  //data->currAccelX = readAccelX();
   double currAccelX = readAccelX();
   currDataBlock.accelX = currAccelX;
 
+  //data->accelY = readAccelY();
   double currAccelY = readAccelY();
   currDataBlock.accelY = currAccelY;
 
+  //data->accelZ = readAccelZ();
   double currAccelZ = readAccelZ();
   currDataBlock.accelZ = currAccelZ;
 
@@ -242,21 +270,7 @@ void printToConsole(DataBlock dataToWrite)
 void writeToCSV(DataBlock dataToWrite)
 {
   // build the data string *Not Needed*
-  /*
-  dataString = "";
-  dataString.concat(dataToWrite.extTemp);
-  dataString.concat(", ");
-  dataString.concat(dataToWrite.pressure);
-  dataString.concat(", ");
-  dataString.concat(dataToWrite.accelX);
-  dataString.concat(",");
-  dataString.concat(dataToWrite.accelY);
-  dataString.concat(", ");
-  dataString.concat(dataToWrite.accelZ);
-  dataString.concat(", ");
-  dataString.concat(millis());
-  */
-
+  dataString = (String)dataToWrite.extTemp + "," + (String)dataToWrite.pressure + "," + (String)dataToWrite.accelX + "," + (String)dataToWrite.accelY + "," + (String)dataToWrite.accelZ + "," + (String)millis();
   /*
    * Write data in bytes to the file. Theoretically this should optimize performance
    * and require fewer processor operations.
@@ -268,28 +282,36 @@ void writeToCSV(DataBlock dataToWrite)
    * every time to pass to this function we would save valuable time. 
   */
 
+  
   //Ideally this would appear in a struct
   //Cast the sensor values as bytes so that they write to the SD faster
-  data[0] = (byte)dataToWrite.extTemp;
-  data[1] = (byte)dataToWrite.pressure;
-  data[2] = (byte)dataToWrite.accelX;
-  data[3] = (byte)dataToWrite.accelY;
-  data[4] = (byte)dataToWrite.accelZ;
-
+  /*
+  dataFile[0] = (byte)dataToWrite.extTemp;
+  Serial.println((String)dataToWrite.extTemp + " Data File 1: " + dataFile[0]);
+  dataFile[1] = (byte)dataToWrite.pressure;
+  Serial.println((String)dataToWrite.pressure + "Data File 2: " + dataFile[1]);
+  dataFile[2] = (byte)dataToWrite.accelX;
+  dataFile[3] = (byte)dataToWrite.accelY;
+  dataFile[4] = (byte)dataToWrite.accelZ;
+  
   //Add the data to buf until it is full then write
+  
   index_buf++;  
   for(int i = 0; index_buf < 512 && i < 5; i++){
-    buf[index_buf] = data[i];
+    buf[index_buf] = dataFile[i];
+  }
+  */
     
     /*
      * Write buf to the file once it is full
      * NOTE: this buffer size may be so large that it takes to long to
      * write it at one time. Try 128, 32, etc to see if smaller is better
     */
-    if(index_buf >= 512){sensorData.write(buf, 512);}  
-    index_buf++;
-  }
-
+    /*
+    if(index_buf >= 511){sensorData.write(buf, 512); index_buf = 0;}  
+    */
+    
+  
   /*
    *Alternative method that does not require translation from bytes to csv.
    * When sensorData is called the data is not written immediately written to the file. 
@@ -297,11 +319,17 @@ void writeToCSV(DataBlock dataToWrite)
    * sensorData.flush() is called once every 50 data entries to limit the number of times  
    * flush is called. By decreasing the frequency of the flushes we increase the speed of 
    * recording.
+   */
    
-    sensorData.println(dataString);  
-    if(totalEntries % 50 == 0){sensorData.flush();}
-  */
-
+    sensorData.println(dataString);
+    /*  
+    if(totalEntries % 200 == 0){
+      //Serial.println("wrote data");
+      sensorData.flush();
+    }
+    */
+   sensorData.flush();
+  
   //Below just slows the code down... don't know what it was for anyway.
   /*
   String tempString = "";
@@ -314,6 +342,8 @@ void writeToCSV(DataBlock dataToWrite)
 
 void initCSV()
 {
+  DataBlock data;
+  
   //Serial.print("Initializing SD card...");
   pinMode(SD_CS, OUTPUT);
 
@@ -476,7 +506,7 @@ void loop()
        if (/*!isRecording &&*/ totalEntries > 100) //this stops the recording only if the plane has been in the air (gathered data)
                                                     //and no has weight on wheels
        {
-           Serial.print("Recording Stopped ...");
+           Serial.println("Recording Stopped ...");
            finish();
        }
 

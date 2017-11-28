@@ -49,12 +49,12 @@ float extTemp = 0;
 File sensorData; //pointer to the file on the SD
 bool finished = false;
 SdFat sd;
+char CSV_FILENAME[] = "DATA00.CSV"; //the file name of the CSV file on the SD
 
 //Constants
-const int POLLING_RATE = (int)((1/(float)400)*1000); //the polling rate, expressed in miliseconds (400Hz = 1/400ms)
+const int POLLING_RATE = (int)((1/(float)200)*1000); //the polling rate, expressed in miliseconds (200Hz = 1/200ms)
 const int HEAT_CYCLE = 15000; //sets a heat cycle time of 15 sec (in millisec)
 const int DESIRED_TEMP = 15; //desired temperature of the box, what the pwm of the heater works toward, in celsius
-const char CSV_FILENAME[] = "DATA.CSV"; //the file name of the CSV file on the SD
 const float P_GAIN = 1; // proportinal gain for the heater control
 const float D_GAIN = -0.4; //derivative gain for the heater control
 const float TOUCH_TEMP_LIMIT = 50; // Touch temp limit on box
@@ -288,14 +288,27 @@ void initCSV()
    
   Serial.println("Done.");
 
-  Serial.print("Initializing CSV...");
-  if(sd.exists(CSV_FILENAME))
+  Serial.println("Initializing CSV...");
+  if(sd.exists(CSV_FILENAME)) //file already exists, create a new one
   {
-    Serial.print("Data.csv exists, deleting old version...");
-    sd.remove(CSV_FILENAME);
+    Serial.println(String(CSV_FILENAME) + " exists, attempting to create new File...");
+    //sd.remove(CSV_FILENAME); //delete old file
+    for (int i = 0; i < 100; i++) 
+    {
+      CSV_FILENAME[4] = i/10 + '0';
+      CSV_FILENAME[5] = i%10 + '0';
+      if (sd.exists(CSV_FILENAME))
+      { 
+        Serial.println(String(CSV_FILENAME) + " already exists...");
+        continue;
+      }
+      break;
+    }
+    Serial.print(String(CSV_FILENAME) + " created...");
   }
-
+  
   sensorData = sd.open(CSV_FILENAME, O_CREAT | O_WRITE | O_APPEND);
+  
   if (sensorData)
   {
     sensorData.println("External Temperature (C), Barometric Pressure (Pa), Acceleration X, Acceleration Y, Acceleration Z");
@@ -304,7 +317,7 @@ void initCSV()
   {
     Serial.println("\nError writing to file!");
   }
-  Serial.println("Done.");
+  Serial.println("...Done.");
 }
 
 void initSensors()
@@ -404,7 +417,7 @@ void updateHeater(float intTemp) // Changes made to implement a PD controller  *
   // * to make sure the box does not go too hot, we will impelment a back up temperature check. The logic should check the tempa and also make sure it isn't jsut bad data  
   // *  from the backup sensor by using the external sensor also
     
-     if ((staticTempCounter >= 10000) and (extTemp > EXT_TEMP_LIMIT))
+     if ((staticTempCounter >= 60000) and (extTemp > EXT_TEMP_LIMIT)) // 5 min static
      {
        activateFailLight();
        intPWM = 0;
@@ -440,7 +453,7 @@ void loop()
        {
            record();
        }
-       else if (!isRecording && totalEntries > 100) //this stops the recording only if the plane has been in the air (gathered data) and no has weight on wheels
+       else if (!isRecording && totalEntries > 60000) //this stops the recording only if the plane has been in the air (gathered data) and no has weight on wheels
        {
            Serial.println("Recording Stopped ...");
            finish();

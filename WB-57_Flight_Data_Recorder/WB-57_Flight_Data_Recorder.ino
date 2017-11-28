@@ -9,7 +9,7 @@
 //Declarations for imported hardware firmware classes
 
 //Weight on Wheels Sensor
-#define WEIGHT_ON_WHEELS 13 //pin for the Weight on Wheels
+#define WEIGHT_OFF_WHEELS 13 //pin for the Weight on Wheels
 
 //Temp Sensor
 #define MAX31865_CS 6//7 // CS pin
@@ -126,8 +126,9 @@ void checkForWeightOnWheels() // pin 13 - when there is weight on wheels = 1, li
 {
   bool oldRecordingStatus = isRecording;
   String statusString = "";
-  if (digitalRead(WEIGHT_ON_WHEELS))
+  if (digitalRead(WEIGHT_OFF_WHEELS))
   {
+    //Serial.println("Weight Off Wheels");
     isRecording = true;
     statusString = "In Flight... (WOW HIGH)";
   }
@@ -433,12 +434,13 @@ void updateHeater(float intTemp) // Changes made to implement a PD controller  *
 
 void finish()
 {
-  //Serial.print("Finished.");
-  sensorData.close();
-  finished = true;
-  
-  //TODO: sever connections to sensors nicely if needed
-  //TODO: power down, or wait for signal to start recording again (don't know what wer are supposed to do here)
+  if (finished == false)
+  {
+    Serial.println("Recording Stopped.");
+    sensorData.close();
+    finished = true;
+    Serial.println("Finished.");
+  }
 }
 
 
@@ -449,16 +451,22 @@ void loop()
     {
       checkForWeightOnWheels(); //looking for the weight on wheels switch
       
-       if (isRecording && !finished) // if weight on wheel is switch is false, then isRecording will be true and we want to record
+       if (isRecording) // if weight off wheels is true, then isRecording will be true and we want to record
        {
-           record();
-       }
-       else if (!isRecording && totalEntries > 60000) //this stops the recording only if the plane has been in the air (gathered data) and no has weight on wheels
+           record();           
+       }       
+       else //weight on wheels (maybe stop recording now)
        {
-           Serial.println("Recording Stopped ...");
-           finish();
+           if (!finished && totalEntries > 0) //olny stops the recording if the plane has been in the air (gathered data) for 5 minutes
+           {
+              record();
+           }
+           if (totalEntries > 60000)
+           {
+              finish();
+           }
        }
-             
+     
        if (currTime >= lastTimeHeat + HEAT_CYCLE) // calling the heater control loop for the time set in HEAT_CYCLE (15 sec)
        {
           updateHeater(internalTemp);

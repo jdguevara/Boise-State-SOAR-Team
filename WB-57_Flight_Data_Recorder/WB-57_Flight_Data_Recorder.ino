@@ -124,16 +124,23 @@ void record()
 
 void checkForWeightOnWheels() // pin 13 - when there is weight on wheels = 1, lift-off = 0
 {
-// Serial.print("Entered checkForWeightOnWheels function ");
- // if (totalEntries < 100) //TODO: fill in once we know how to get the plane's wheels up signal
+  bool oldRecordingStatus = isRecording;
+  String statusString = "";
   if (!digitalRead(WEIGHT_ON_WHEELS))
   {
     isRecording = true;
+    statusString = "In Flight... (WOW LOW)";
   }
   else
   {
     isRecording = false;
+    statusString = "On Ground... (WOW HIGH)";
   }
+  if (oldRecordingStatus != isRecording) //recording status changed
+  {
+    Serial.println(statusString);
+  }
+
 } 
 
 DataBlock pollSensors()
@@ -259,9 +266,9 @@ void writeToCSV(DataBlock dataToWrite)
   }
   String tempString = "";
   tempString = totalEntries;
-  Serial.print("Row ");
-  Serial.print(tempString);
-  Serial.println(" - Datablock written to CSV");
+  //Serial.print("Row ");
+  //Serial.print(tempString);
+  //Serial.println(" - Datablock written to CSV");
 }
 
 void initCSV()

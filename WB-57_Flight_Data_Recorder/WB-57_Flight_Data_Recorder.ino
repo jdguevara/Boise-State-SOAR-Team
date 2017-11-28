@@ -126,15 +126,15 @@ void checkForWeightOnWheels() // pin 13 - when there is weight on wheels = 1, li
 {
   bool oldRecordingStatus = isRecording;
   String statusString = "";
-  if (!digitalRead(WEIGHT_ON_WHEELS))
+  if (digitalRead(WEIGHT_ON_WHEELS))
   {
     isRecording = true;
-    statusString = "In Flight... (WOW LOW)";
+    statusString = "In Flight... (WOW HIGH)";
   }
   else
   {
     isRecording = false;
-    statusString = "On Ground... (WOW HIGH)";
+    statusString = "On Ground... (WOW LOW)";
   }
   if (oldRecordingStatus != isRecording) //recording status changed
   {

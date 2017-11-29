@@ -41,6 +41,7 @@ unsigned long lastTime; //the time since the last record call
 unsigned long lastTimeHeat; // the time since the last heat cycle
 float lastTempDeviance; // temp error from last cycle to be used to determine slope of error.
 float lastPWM; // last cycle's PWM output before making it an integer
+int intPWM; //integer representation of PWM (0-255)
 String dataString = ""; // holds the String of one line to be written to the CSV file
 float internalTemp; //internal temperature of the box
 float lastIntTemp = 0; // last integer temperature
@@ -256,6 +257,10 @@ void writeToCSV(DataBlock dataToWrite)
   dataString.concat(", ");
   dataString.concat(dataToWrite.accelZ);
   dataString.concat(", ");
+  dataString.concat(dataToWrite.intTemp);
+  dataString.concat(", ");
+  dataString.concat(intPWM);
+  dataString.concat(", ");
   dataString.concat(millis());
   //Serial.println("Datablock " + dataString);
   
@@ -312,7 +317,7 @@ void initCSV()
   
   if (sensorData)
   {
-    sensorData.println("External Temperature (C), Barometric Pressure (Pa), Acceleration X, Acceleration Y, Acceleration Z");
+    sensorData.println("External Temperature (C), Barometric Pressure (Pa), Acceleration X, Acceleration Y, Acceleration Z, Internal Temperature (C), Integer PWM (0-255), Time Since Boot (ms)");
   }
   else
   {
@@ -362,6 +367,7 @@ void initHeater()
 void initFailLight()
 {
   pinMode(FAIL_LIGHT, OUTPUT);
+  digitalWrite(FAIL_LIGHT, LOW);
 }
 
 void failTempSensor(DataBlock dataToCheck)
@@ -404,7 +410,7 @@ void updateHeater(float intTemp) // Changes made to implement a PD controller  *
   lastPWM = PWM; // saving this PWM value for next cycle
   lastTempDeviance = tempDeviance; // saving this temp error for next cycle
   
-  int intPWM = (int)(PWM + 0.5); // converting PWM to an integer and adding 0.5 so it will round the value and not truncate
+  intPWM = (int)(PWM + 0.5); // converting PWM to an integer and adding 0.5 so it will round the value and not truncate
   
   if (intPWM > 255)
   {
@@ -447,10 +453,11 @@ void finish()
 void loop()
 { 
    unsigned long currTime = millis();
-   if (currTime >= lastTime + POLLING_RATE) // if possible we would like to loop at 400Hz, or every 2.5msec
+   if (currTime >= lastTime + POLLING_RATE) // loop at 200Hz, or every 5msec
     {
-      checkForWeightOnWheels(); //looking for the weight on wheels switch
-      
+       record();
+       /* weight on wheels is unreliable, cant use this logic
+       checkForWeightOnWheels(); //looking for the weight on wheels switch      
        if (isRecording) // if weight off wheels is true, then isRecording will be true and we want to record
        {
            record();           
@@ -466,6 +473,7 @@ void loop()
               finish();
            }
        }
+       */
      
        if (currTime >= lastTimeHeat + HEAT_CYCLE) // calling the heater control loop for the time set in HEAT_CYCLE (15 sec)
        {

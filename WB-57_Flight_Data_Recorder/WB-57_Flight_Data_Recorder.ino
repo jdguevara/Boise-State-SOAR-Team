@@ -423,12 +423,11 @@ void updateHeater(float intTemp) // Changes made to implement a PD controller  *
  
   // * to make sure the box does not go too hot, we will impelment a back up temperature check. The logic should check the tempa and also make sure it isn't jsut bad data  
   // *  from the backup sensor by using the external sensor also
-    
-     if ((staticTempCounter >= 60000) and (extTemp > EXT_TEMP_LIMIT)) // 5 min static
-     {
-       activateFailLight();
-       intPWM = 0;
-     }  
+  if ((staticTempCounter >= 60000) and (extTemp > EXT_TEMP_LIMIT)) // 5 min static
+  {
+    //activateFailLight();
+    intPWM = 0;
+  }  
 //  Serial.print("intPWM is ");
 //  Serial.println(intPWM);
  

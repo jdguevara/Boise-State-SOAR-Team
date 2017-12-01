@@ -97,8 +97,8 @@ void setup()
 void initialization()
 {
   //Initialize the serial bus, needed to write back to console
-  Serial.begin(115200);
-  while (!Serial);     // pause until serial console opens
+  //Serial.begin(115200); //COMMENT OUT IF BUILDING FOR FLIGHT
+  //while (!Serial);     // pause until serial console opens COMMENT OUT IF BUILDING FOR FLIGHT
   Serial.println("Initializing software...");
   
   isRecording = false;
